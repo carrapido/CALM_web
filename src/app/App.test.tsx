@@ -44,23 +44,23 @@ describe('Admin shell navigation', () => {
     expect(pageHeading('Agenda')).toBeInTheDocument()
   })
 
-  it('lists the admin sections and then the profile tab', () => {
+  it('lists the three admin sections', () => {
     renderApp()
 
-    const expectedNames = ['Agenda', 'Pedidos', 'Catálogo', 'Perfil']
+    const expectedNames = ['Agenda', 'Pedidos', 'Catálogo']
     const links = within(adminNavigation()).getAllByRole('link')
 
     expect(links).toHaveLength(expectedNames.length)
     links.forEach((link, index) => expect(link).toHaveAccessibleName(expectedNames[index]))
   })
 
-  it('links the admin identity to the profile page', () => {
+  it('shows the admin identity without making it a navigation link', () => {
     renderApp()
 
-    const identity = screen.getByRole('link', { name: 'Administradora' })
-
-    expect(identity).toHaveAttribute('href', '#/perfil')
+    expect(screen.getByText('Administradora')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Administradora' })).not.toBeInTheDocument()
   })
+
 })
 
 function renderApp() {

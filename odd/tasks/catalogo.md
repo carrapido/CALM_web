@@ -47,8 +47,8 @@ Out of scope: the client app's catalog and quote screens (Android), linking orde
 - **Pending checks:**
   - Client app (out of this repo): show "se cotiza en el local" services without a price and leave them out of the preliminary total.
   - Pedidos still takes free-text work; decide whether an order picks its services from the catalog.
-  - Cross-feature, still open: the API and its technology (PDF "pendientes de confirmar"), admin login/logout, the Perfil page (still a placeholder), confirming `wa.me/52…` on a real phone, and replacing the in-memory adapters behind `AgendaRepository`, `OrdersRepository` and `CatalogRepository`.
-- **Next step:** no specific objective left in the index. Candidates for a new one: the API adapters (once the technology is chosen), login, or the Perfil page.
+  - Cross-feature, still open: the API and its technology (PDF "pendientes de confirmar"), admin login/logout, confirming `wa.me/52…` on a real phone, and replacing the in-memory adapters behind `AgendaRepository`, `OrdersRepository` and `CatalogRepository`.
+- **Next step:** no specific objective left in the index. Candidates for a new one: the API adapters (once the technology is chosen) or login.
 
 ### 2026-10-25 — scenario 8 GREEN (reopened)
 
@@ -59,4 +59,4 @@ Out of scope: the client app's catalog and quote screens (Android), linking orde
 
 - **Outcome:** scenario 8 approved by the user. Catálogo closed with scenarios 1–8; 64/64 tests GREEN; `tsc`, `oxlint`, build clean. Test lock removed. All specific objectives in the index are done.
 - **Pending checks:** unchanged from the previous close, plus: the real API should delete services logically.
-- **Next step:** no specific objective left in the index. Candidates: the API adapters (once the technology is chosen), admin login, or the Perfil page.
+- **Next step:** no specific objective left in the index. Candidates: the API adapters (once the technology is chosen) or admin login.

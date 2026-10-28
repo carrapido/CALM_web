@@ -6,7 +6,6 @@ import type { OrdersRepository } from '../orders/application/orders-repository'
 import { OrdersPage } from '../orders/ui/OrdersPage'
 import { AdminShell } from './layout/AdminShell'
 import { useCurrentPage, type Page } from './navigation'
-import { PagePlaceholder } from './PagePlaceholder'
 
 type AppProps = {
   agendaRepository: AgendaRepository
@@ -49,6 +48,6 @@ function PageContent({
     case 'catalogo':
       return <CatalogPage repository={catalogRepository} />
     default:
-      return <PagePlaceholder title={page.label} />
+      return null
   }
 }

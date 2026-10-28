@@ -6,10 +6,7 @@ export const SECTIONS = [
   { id: 'catalogo', label: 'Catálogo', icon: 'sell' },
 ] as const
 
-// The profile is a page but not a work section: the layout places it apart.
-export const PROFILE_PAGE = { id: 'perfil', label: 'Perfil', icon: 'person' } as const
-
-const PAGES = [...SECTIONS, PROFILE_PAGE] as const
+const PAGES = SECTIONS
 
 export type Page = (typeof PAGES)[number]
 export type PageId = Page['id']

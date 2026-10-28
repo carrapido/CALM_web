@@ -74,7 +74,7 @@ Today is a fixed date in tests; the in-memory adapter holds the fixtures.
 
 ### 2026-10-25 — day view (scenarios 1–4) GREEN
 
-- **Outcome:** `src/agenda/` module (domain, `AgendaRepository` port, in-memory adapter with `sampleAgenda`, `AgendaPage` container + `DayView`). `App` receives the repository and clock from `main.tsx` (composition root). `PageFrame` template shared with `PagePlaceholder`. 13/13 tests GREEN; `tsc` and `oxlint` clean. Tests locked in `.claude/tests.lock`.
+- **Outcome:** `src/agenda/` module (domain, `AgendaRepository` port, in-memory adapter with `sampleAgenda`, `AgendaPage` container + `DayView`). `App` receives the repository and clock from `main.tsx` (composition root). `PageFrame` template shared across app pages. 13/13 tests GREEN; `tsc` and `oxlint` clean. Tests locked in `.claude/tests.lock`.
 - **Change:** scenario 15 (free slots that already started read "Pasado"); the hook became `useDayData` (loads schedule and appointments) and `AgendaPage` builds the slots on render with `momentInCancun(now())`. Test clock moved to 09:00 so the existing scenarios keep their meaning. 15/15 GREEN.
 - **Decision:** 24-hour times stay (user, 2026-10-25).
 

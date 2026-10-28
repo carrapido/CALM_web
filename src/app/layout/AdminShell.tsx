@@ -1,16 +1,15 @@
 import type { ReactNode } from 'react'
 import { Icon } from '../../shared/ui/atoms/Icon'
 import { BrandMark } from '../../shared/ui/molecules/BrandMark'
-import { PROFILE_PAGE, SECTIONS, pageHref, type Page, type PageId } from '../navigation'
+import { SECTIONS, pageHref, type Page, type PageId } from '../navigation'
 
 type AdminShellProps = {
   currentPageId: PageId
   children: ReactNode
 }
 
-// Phone first: below md the navigation is a bottom tab bar within thumb reach, with
-// the profile as its last tab; from md up the same <nav> sits in a left sidebar and
-// the profile moves to the admin identity at the sidebar's foot.
+// Phone first: below md the navigation is a bottom tab bar within thumb reach;
+// from md up the same <nav> sits in a left sidebar.
 export function AdminShell({ currentPageId, children }: AdminShellProps) {
   return (
     <div className="min-h-screen bg-background">
@@ -20,7 +19,7 @@ export function AdminShell({ currentPageId, children }: AdminShellProps) {
           <BrandMark size="regular" />
         </div>
         <AdminNavigation currentPageId={currentPageId} />
-        <AdminIdentity isCurrent={currentPageId === PROFILE_PAGE.id} />
+        <AdminIdentity />
       </aside>
       {/* pb-20 keeps the last content above the h-16 bottom tab bar. */}
       <main className="pb-20 md:ml-72 md:pb-0">{children}</main>
@@ -45,11 +44,6 @@ function AdminNavigation({ currentPageId }: { currentPageId: PageId }) {
       {SECTIONS.map((page) => (
         <NavigationLink key={page.id} page={page} isCurrent={page.id === currentPageId} />
       ))}
-      <NavigationLink
-        page={PROFILE_PAGE}
-        isCurrent={PROFILE_PAGE.id === currentPageId}
-        className="md:hidden"
-      />
     </nav>
   )
 }
@@ -57,10 +51,9 @@ function AdminNavigation({ currentPageId }: { currentPageId: PageId }) {
 type NavigationLinkProps = {
   page: Page
   isCurrent: boolean
-  className?: string
 }
 
-function NavigationLink({ page, isCurrent, className = '' }: NavigationLinkProps) {
+function NavigationLink({ page, isCurrent }: NavigationLinkProps) {
   const linkState = isCurrent
     ? 'font-semibold text-black md:bg-black md:text-white'
     : 'text-on-surface-variant hover:text-on-surface md:hover:bg-surface-container-high'
@@ -71,7 +64,7 @@ function NavigationLink({ page, isCurrent, className = '' }: NavigationLinkProps
     <a
       href={pageHref(page.id)}
       aria-current={isCurrent ? 'page' : undefined}
-      className={`flex h-16 flex-col items-center justify-center gap-0.5 text-label-lg transition-colors md:h-12 md:flex-row md:justify-start md:gap-space-sm md:rounded-lg md:px-space-md md:text-body-lg ${linkState} ${className}`}
+      className={`flex h-16 flex-col items-center justify-center gap-0.5 text-label-lg transition-colors md:h-12 md:flex-row md:justify-start md:gap-space-sm md:rounded-lg md:px-space-md md:text-body-lg ${linkState}`}
     >
       <Icon name={page.icon} className={`text-[24px] ${iconState}`} />
       {page.label}
@@ -79,17 +72,13 @@ function NavigationLink({ page, isCurrent, className = '' }: NavigationLinkProps
   )
 }
 
-function AdminIdentity({ isCurrent }: { isCurrent: boolean }) {
+function AdminIdentity() {
   return (
-    <a
-      href={pageHref(PROFILE_PAGE.id)}
-      aria-current={isCurrent ? 'page' : undefined}
-      className="hidden items-center gap-space-sm border-t border-surface-container-highest px-space-md py-space-md transition-colors hover:bg-surface-container-high aria-[current=page]:bg-surface-container-high md:flex"
-    >
+    <div className="hidden items-center gap-space-sm border-t border-surface-container-highest px-space-md py-space-md md:flex">
       <div className="flex size-9 items-center justify-center rounded-full bg-primary">
         <Icon name="person" className="text-[20px] text-on-primary" />
       </div>
       <span className="text-title-md text-on-surface">Administradora</span>
-    </a>
+    </div>
   )
 }
