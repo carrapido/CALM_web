@@ -8,6 +8,7 @@ import {
   isActive,
   nextStatus,
   previousStatus,
+  stepOf,
   type Order,
   type OrderStatus,
 } from '../domain/order'
@@ -32,7 +33,13 @@ export function OrderCard({ order, onMove }: OrderCardProps) {
           Cancelado
         </p>
       ) : (
-        <OrderStepper current={order.status} />
+        <OrderStepper current={stepOf(order.status)} />
+      )}
+      {order.status === 'onTheWay' && (
+        <p className="flex items-center justify-center gap-space-xs rounded-lg bg-secondary-container p-space-sm text-title-md text-on-secondary-fixed">
+          <Icon name="directions_walk" className="text-[24px]" />
+          Cliente en camino
+        </p>
       )}
       {onMove && isActive(order) && <OrderControls order={order} onMove={onMove} />}
     </article>

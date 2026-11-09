@@ -5,7 +5,8 @@ export const ORDER_STEPS = ['received', 'inProgress', 'ready', 'delivered'] as c
 
 export type OrderStep = (typeof ORDER_STEPS)[number]
 
-export type OrderStatus = OrderStep | 'cancelled'
+// The client sets onTheWay from the app on a ready order; it still sits on the Listo step.
+export type OrderStatus = OrderStep | 'onTheWay' | 'cancelled'
 
 export type Order = {
   ticket: string
@@ -27,11 +28,17 @@ export function isActive({ status }: Order): boolean {
 // The status a forward step leads to; undefined once the order is finished.
 export function nextStatus(status: OrderStatus): OrderStep | undefined {
   if (status === 'cancelled') return undefined
-  return ORDER_STEPS[ORDER_STEPS.indexOf(status) + 1]
+  return ORDER_STEPS[ORDER_STEPS.indexOf(stepOf(status)) + 1]
 }
 
 // The status a step back returns to; undefined for a new or finished order.
 export function previousStatus(status: OrderStatus): OrderStep | undefined {
   if (status === 'cancelled' || status === 'delivered') return undefined
+  if (status === 'onTheWay') return 'ready'
   return ORDER_STEPS[ORDER_STEPS.indexOf(status) - 1]
+}
+
+// The step the stepper shows for a status that is not cancelled.
+export function stepOf(status: Exclude<OrderStatus, 'cancelled'>): OrderStep {
+  return status === 'onTheWay' ? 'ready' : status
 }

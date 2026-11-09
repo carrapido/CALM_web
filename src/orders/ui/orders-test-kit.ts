@@ -93,14 +93,15 @@ const ORDERS: Order[] = [
 type OrdersOptions = {
   // Values the random source returns in turn; the last one repeats.
   randomValues?: number[]
+  orders?: Order[]
 }
 
-export function renderOrders({ randomValues = [0.12345] }: OrdersOptions = {}) {
+export function renderOrders({ randomValues = [0.12345], orders = ORDERS }: OrdersOptions = {}) {
   const agendaRepository = new InMemoryAgendaRepository({
     schedule: SCHEDULE,
     appointments: APPOINTMENTS,
   })
-  const ordersRepository = new InMemoryOrdersRepository(ORDERS)
+  const ordersRepository = new InMemoryOrdersRepository(orders)
   let call = 0
   const random = () => randomValues[Math.min(call++, randomValues.length - 1)]
   render(
