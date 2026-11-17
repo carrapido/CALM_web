@@ -1,121 +1,126 @@
 @import 'tailwindcss';
 
+/* Lets materials turn solid when the system asks for less transparency. */
+@custom-variant reduced-transparency (@media (prefers-reduced-transparency: reduce));
+
 /*
- * Design tokens from the Stitch export (sartorial_wireframe/DESIGN.md).
- * Radius needs no override: Tailwind defaults already match the screens.
+ * Apple-style tokens from the "Calm Redesign" canvas (odd/tasks/apple-shell.md).
+ * Names keep the Stitch roles, so every screen restyles without class changes.
  */
 @theme {
-  --font-sans: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 
-  --color-background: #f7f9fb;
-  --color-on-background: #191c1e;
-  --color-surface: #f7f9fb;
-  --color-surface-dim: #d8dadc;
-  --color-surface-bright: #f7f9fb;
-  --color-surface-variant: #e0e3e5;
-  --color-surface-tint: #545f73;
+  --color-background: #f2f4f7;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #f2f4f6;
-  --color-surface-container: #eceef0;
-  --color-surface-container-high: #e6e8ea;
-  --color-surface-container-highest: #e0e3e5;
-  --color-on-surface: #191c1e;
-  --color-on-surface-variant: #45474c;
-  --color-inverse-surface: #2d3133;
-  --color-inverse-on-surface: #eff1f3;
-  --color-outline: #75777d;
-  --color-outline-variant: #c5c6cd;
+  --color-surface-container-low: #f7f8fa;
+  --color-surface-container: #eceef2;
+  --color-surface-container-high: #e6e9ee;
+  --color-surface-container-highest: #dde1e7;
+  --color-on-surface: #0f172a;
+  --color-on-surface-variant: #45464d;
+  --color-outline: #767b85;
+  --color-outline-variant: #c9cdd4;
 
-  --color-primary: #091426;
+  /* Ink at low opacity, like Apple's system fills: they read on gray and on white. */
+  --color-fill: rgb(15 23 42 / 0.06);
+  --color-fill-strong: rgb(15 23 42 / 0.08);
+  --color-separator: rgb(15 23 42 / 0.08);
+  --color-focus: #0b57d0;
+  /* The "Ahora" line, like the current-time line of Apple's Calendar. */
+  --color-now: #d70015;
+
+  --color-primary: #0f172a;
   --color-on-primary: #ffffff;
   --color-primary-container: #1e293b;
-  --color-on-primary-container: #8590a6;
-  --color-inverse-primary: #bcc7de;
-  --color-primary-fixed: #d8e3fb;
-  --color-primary-fixed-dim: #bcc7de;
-  --color-on-primary-fixed: #111c2d;
-  --color-on-primary-fixed-variant: #3c475a;
 
-  --color-secondary: #775a00;
-  --color-on-secondary: #ffffff;
-  --color-secondary-container: #fed269;
-  --color-on-secondary-container: #765900;
-  --color-secondary-fixed: #ffdf99;
-  --color-secondary-fixed-dim: #ecc15a;
-  --color-on-secondary-fixed: #251a00;
-  --color-on-secondary-fixed-variant: #5a4300;
+  --color-secondary-container: #fff4d6;
+  --color-on-secondary-fixed: #6b4a00;
 
-  --color-tertiary: #041528;
-  --color-on-tertiary: #ffffff;
-  --color-tertiary-container: #1a2a3e;
-  --color-on-tertiary-container: #8191a9;
-  --color-tertiary-fixed: #d3e4fe;
-  --color-tertiary-fixed-dim: #b7c8e1;
-  --color-on-tertiary-fixed: #0b1c30;
-  --color-on-tertiary-fixed-variant: #38485d;
+  /* "Listo para recoger": a green tint with ink dark enough for text on it. */
+  --color-success-container: #e3f5e9;
+  --color-on-success-container: #0b5b2a;
 
-  --color-error: #ba1a1a;
+  --color-error: #c4001a;
   --color-on-error: #ffffff;
-  --color-error-container: #ffdad6;
-  --color-on-error-container: #93000a;
+  --color-error-container: #fdecec;
+  --color-on-error-container: #9b0014;
+
+  /* A raised card: the detail panels and notices that float over the gray ground. */
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.05), 0 8px 24px rgb(15 23 42 / 0.06);
+
+  /* rounded-lg is every button and field, rounded-xl every card. */
+  --radius-lg: 0.875rem;
+  --radius-xl: 1rem;
 
   --spacing-space-xs: 0.25rem;
   --spacing-space-sm: 0.5rem;
   --spacing-space-md: 1rem;
   --spacing-space-lg: 1.5rem;
   --spacing-space-xl: 2rem;
-  --spacing-gutter: 1rem;
-  --spacing-gutter-mobile: 0.75rem;
   --spacing-margin: 1rem;
-  --spacing-margin-tablet: 1.5rem;
   --spacing-margin-desktop: 2rem;
 
-  --text-display-lg: 36px;
-  --text-display-lg--line-height: 44px;
-  --text-display-lg--letter-spacing: -0.02em;
-  --text-display-lg--font-weight: 600;
-  --text-display-lg-mobile: 28px;
-  --text-display-lg-mobile--line-height: 34px;
+  /* Large text tracks tighter, small text looser (Apple, "The Details of UI Typography"). */
+  --text-display-lg: 40px;
+  --text-display-lg--line-height: 42px;
+  --text-display-lg--letter-spacing: -0.025em;
+  --text-display-lg--font-weight: 800;
+  --text-display-lg-mobile: 34px;
+  --text-display-lg-mobile--line-height: 38px;
   --text-display-lg-mobile--letter-spacing: -0.02em;
-  --text-display-lg-mobile--font-weight: 600;
+  --text-display-lg-mobile--font-weight: 800;
   --text-headline-lg: 24px;
   --text-headline-lg--line-height: 30px;
   --text-headline-lg--letter-spacing: -0.015em;
-  --text-headline-lg--font-weight: 600;
+  --text-headline-lg--font-weight: 800;
   --text-headline-md: 20px;
   --text-headline-md--line-height: 26px;
   --text-headline-md--letter-spacing: -0.01em;
-  --text-headline-md--font-weight: 600;
-  --text-headline-sm: 18px;
+  --text-headline-md--font-weight: 700;
+  --text-headline-sm: 17px;
   --text-headline-sm--line-height: 24px;
   --text-headline-sm--letter-spacing: -0.005em;
-  --text-headline-sm--font-weight: 500;
-  --text-title-md: 16px;
+  --text-headline-sm--font-weight: 700;
+  --text-title-md: 17px;
   --text-title-md--line-height: 22px;
   --text-title-md--letter-spacing: 0em;
   --text-title-md--font-weight: 600;
-  --text-body-lg: 16px;
+  --text-body-lg: 17px;
   --text-body-lg--line-height: 24px;
   --text-body-lg--letter-spacing: 0em;
   --text-body-lg--font-weight: 400;
-  --text-body-md: 14px;
+  --text-body-md: 15px;
   --text-body-md--line-height: 20px;
   --text-body-md--letter-spacing: 0em;
   --text-body-md--font-weight: 400;
-  --text-body-sm: 12px;
-  --text-body-sm--line-height: 16px;
-  --text-body-sm--letter-spacing: 0.01em;
-  --text-body-sm--font-weight: 400;
   --text-label-lg: 14px;
   --text-label-lg--line-height: 18px;
-  --text-label-lg--letter-spacing: 0.02em;
-  --text-label-lg--font-weight: 500;
-  --text-label-md: 12px;
-  --text-label-md--line-height: 16px;
-  --text-label-md--letter-spacing: 0.04em;
-  --text-label-md--font-weight: 500;
-  --text-label-technical: 11px;
-  --text-label-technical--line-height: 14px;
+  --text-label-lg--letter-spacing: 0.01em;
+  --text-label-lg--font-weight: 700;
+  --text-label-technical: 12px;
+  --text-label-technical--line-height: 16px;
   --text-label-technical--letter-spacing: 0.08em;
-  --text-label-technical--font-weight: 600;
+  --text-label-technical--font-weight: 800;
+}
+
+@layer base {
+  :where(button, a) {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Response on pointer-down. `scale` leaves Tailwind's transform utilities alone. */
+  :where(button:not(:disabled), a):active {
+    scale: 0.98;
+  }
+
+  :where(button, a, input, select, textarea):focus-visible {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :where(button, a):active {
+      scale: none;
+    }
+  }
 }

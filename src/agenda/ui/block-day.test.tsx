@@ -1,7 +1,14 @@
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { SATURDAY_MORNING, button, dayHeading, daySlots, renderAgenda } from './agenda-test-kit'
+import {
+  SATURDAY_MORNING,
+  button,
+  dayHeading,
+  daySlots,
+  renderAgenda,
+  slotGroup,
+} from './agenda-test-kit'
 
 describe('Block a day', () => {
   it('blocks an open day without appointments once confirmed, and unblocks it', async () => {
@@ -10,14 +17,18 @@ describe('Block a day', () => {
 
     await userEvent.click(button('Bloquear este día'))
     expect(screen.getByText('¿Bloquear el martes 27 de octubre?')).toBeInTheDocument()
+    expect(
+      screen.getByText('Tus clientes no podrán agendar ese día. Puedes desbloquearlo cuando quieras.'),
+    ).toBeInTheDocument()
     await userEvent.click(button('Sí, bloquear el día'))
 
-    expect(await screen.findByText('Día bloqueado')).toBeInTheDocument()
-    expect(screen.queryByRole('list', { name: 'Horarios del día' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Día bloqueado' })).toBeInTheDocument()
+    expect(screen.getByText('Tus clientes no pueden agendar el martes 27 de octubre.')).toBeInTheDocument()
+    expect(within(await daySlots()).queryAllByRole('listitem')).toHaveLength(0)
 
     await userEvent.click(button('Desbloquear día'))
 
-    expect(await daySlots()).toBeInTheDocument()
+    expect(await slotGroup('Más tarde')).toBeInTheDocument()
     expect(screen.queryByText('Día bloqueado')).not.toBeInTheDocument()
   })
 

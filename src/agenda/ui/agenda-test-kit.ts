@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { createElement } from 'react'
 import type { Appointment } from '../domain/appointment'
 import type { CalendarDate } from '../../shared/domain/calendar-date'
@@ -57,8 +58,13 @@ export function dayHeading(): Promise<HTMLElement> {
   return screen.findByRole('heading', { level: 2 })
 }
 
+// Present once the day has loaded; holds the slot lists, notices and the block control.
 export function daySlots(): Promise<HTMLElement> {
-  return screen.findByRole('list', { name: 'Horarios del día' })
+  return screen.findByRole('region', { name: 'Horarios del día' })
+}
+
+export function slotGroup(name: 'Antes de ahora' | 'Más tarde'): Promise<HTMLElement> {
+  return screen.findByRole('list', { name })
 }
 
 export async function slotAt(time: string): Promise<HTMLElement> {
@@ -66,6 +72,19 @@ export async function slotAt(time: string): Promise<HTMLElement> {
   const slot = slots.find((item) => item.querySelector('time')?.textContent === time)
   if (slot === undefined) throw new Error(`No slot at ${time}`)
   return slot
+}
+
+export async function appointmentRow(clientName: string): Promise<HTMLElement> {
+  return within(await daySlots()).findByRole('button', { name: new RegExp(clientName) })
+}
+
+export function appointmentDetail(): Promise<HTMLElement> {
+  return screen.findByRole('region', { name: 'Detalle de la cita' })
+}
+
+export async function chooseAppointment(clientName: string): Promise<HTMLElement> {
+  await userEvent.click(await appointmentRow(clientName))
+  return appointmentDetail()
 }
 
 export function button(name: string | RegExp): HTMLElement {

@@ -5,6 +5,7 @@ import {
   MONDAY_MORNING,
   SATURDAY_MORNING,
   button,
+  chooseAppointment,
   dayHeading,
   renderAgenda,
   slotAt,
@@ -17,7 +18,8 @@ describe('WhatsApp reminder', () => {
   it('links an appointment with a number to a prefilled WhatsApp chat', async () => {
     renderAgenda(SATURDAY_MORNING)
 
-    const reminder = within(await slotAt('10:30')).getByRole('link', {
+    const detail = await chooseAppointment('María López')
+    const reminder = within(detail).getByRole('link', {
       name: 'Recordar por WhatsApp',
     })
 
@@ -31,10 +33,10 @@ describe('WhatsApp reminder', () => {
   it('says an appointment without a number has no WhatsApp', async () => {
     renderAgenda(MONDAY_MORNING)
 
-    const juanSlot = await slotAt('10:00')
+    const detail = await chooseAppointment('Juan Pérez')
 
-    expect(juanSlot).toHaveTextContent('Sin WhatsApp')
-    expect(within(juanSlot).queryByRole('link')).not.toBeInTheDocument()
+    expect(detail).toHaveTextContent('WhatsAppNo dejó número')
+    expect(within(detail).queryByRole('link')).not.toBeInTheDocument()
   })
 })
 
@@ -42,7 +44,8 @@ describe('Cancel an appointment', () => {
   it('frees the slot once the admin confirms', async () => {
     renderAgenda(SATURDAY_MORNING)
 
-    await userEvent.click(within(await slotAt('10:30')).getByRole('button', { name: 'Cancelar cita' }))
+    const detail = await chooseAppointment('María López')
+    await userEvent.click(within(detail).getByRole('button', { name: 'Cancelar cita' }))
     expect(screen.getByText('¿Cancelar la cita de María López a las 10:30?')).toBeInTheDocument()
     await userEvent.click(button('Sí, cancelar la cita'))
 
@@ -52,7 +55,8 @@ describe('Cancel an appointment', () => {
   it('keeps the appointment when the admin changes her mind', async () => {
     renderAgenda(SATURDAY_MORNING)
 
-    await userEvent.click(within(await slotAt('10:30')).getByRole('button', { name: 'Cancelar cita' }))
+    const detail = await chooseAppointment('María López')
+    await userEvent.click(within(detail).getByRole('button', { name: 'Cancelar cita' }))
     await userEvent.click(button('No, dejarla'))
 
     expect(await slotAt('10:30')).toHaveTextContent('María López')
@@ -68,10 +72,10 @@ describe('Appointments that already started', () => {
     await userEvent.click(button('Día anterior'))
     await userEvent.click(button('Día anterior'))
 
-    const mariaSlot = await slotAt('10:30')
-    expect(mariaSlot).toHaveTextContent('María López')
-    expect(within(mariaSlot).queryByRole('button', { name: 'Cancelar cita' })).not.toBeInTheDocument()
-    expect(within(mariaSlot).queryByRole('link')).not.toBeInTheDocument()
+    const detail = await chooseAppointment('María López')
+    expect(detail).toHaveTextContent('María López')
+    expect(within(detail).queryByRole('button', { name: 'Cancelar cita' })).not.toBeInTheDocument()
+    expect(within(detail).queryByRole('link')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Bloquear este día' })).not.toBeInTheDocument()
   })
 
@@ -79,9 +83,9 @@ describe('Appointments that already started', () => {
     // Saturday 10:45 in Cancún, María came at 10:30.
     renderAgenda(new Date('2026-10-24T15:45:00Z'))
 
-    const mariaSlot = await slotAt('10:30')
+    const detail = await chooseAppointment('María López')
 
-    expect(within(mariaSlot).queryByRole('button', { name: 'Cancelar cita' })).not.toBeInTheDocument()
-    expect(within(mariaSlot).queryByRole('link')).not.toBeInTheDocument()
+    expect(within(detail).queryByRole('button', { name: 'Cancelar cita' })).not.toBeInTheDocument()
+    expect(within(detail).queryByRole('link')).not.toBeInTheDocument()
   })
 })

@@ -1,7 +1,14 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { SATURDAY_MORNING, button, dayHeading, daySlots, renderAgenda } from './agenda-test-kit'
+import {
+  SATURDAY_MORNING,
+  button,
+  dayHeading,
+  daySlots,
+  renderAgenda,
+  slotGroup,
+} from './agenda-test-kit'
 
 describe('Agenda day view', () => {
   it("opens on today's date", async () => {
@@ -55,15 +62,15 @@ describe('Agenda day view', () => {
     expect(await within(await daySlots()).findByText('Juan Pérez')).toBeInTheDocument()
   })
 
-  it('offers a way back to today only on other days', async () => {
+  it('keeps "Hoy" off on today and uses it to come back from other days', async () => {
     renderAgenda(SATURDAY_MORNING)
     await dayHeading()
 
-    expect(screen.queryByRole('button', { name: 'Volver a hoy' })).not.toBeInTheDocument()
+    expect(button('Hoy')).toBeDisabled()
 
     await userEvent.click(button('Día siguiente'))
     await userEvent.click(button('Día siguiente'))
-    await userEvent.click(button('Volver a hoy'))
+    await userEvent.click(button('Hoy'))
 
     expect(await dayHeading()).toHaveTextContent('Hoy, sábado 24 de octubre')
   })
@@ -75,30 +82,37 @@ describe('Agenda day view', () => {
     await userEvent.click(button('Día siguiente'))
 
     expect(await screen.findByText('Cerrado')).toBeInTheDocument()
-    expect(screen.queryByRole('list', { name: 'Horarios del día' })).not.toBeInTheDocument()
+    expect(within(await daySlots()).queryAllByRole('listitem')).toHaveLength(0)
   })
 })
 
-describe('Agenda past slots', () => {
-  it('shows free slots that already started today as past', async () => {
+describe('Agenda slots grouped by now', () => {
+  it('splits today into the slots that already started and the ones still to come', async () => {
     // Saturday 11:15 in Cancún.
     renderAgenda(new Date('2026-10-24T16:15:00Z'))
 
-    const slots = within(await daySlots()).getAllByRole('listitem')
+    const before = within(await slotGroup('Antes de ahora')).getAllByRole('listitem')
+    const later = within(await slotGroup('Más tarde')).getAllByRole('listitem')
 
-    expect(slots[0]).toHaveTextContent('10:00Pasado')
-    expect(slots[1]).toHaveTextContent('María López')
-    expect(slots[2]).toHaveTextContent('11:00Pasado')
-    expect(slots[3]).toHaveTextContent('11:30Libre')
+    expect(before).toHaveLength(3)
+    expect(before[0]).toHaveTextContent('10:00Libre')
+    expect(before[1]).toHaveTextContent('María López')
+    expect(before[2]).toHaveTextContent('11:00Libre')
+    expect(later).toHaveLength(1)
+    expect(later[0]).toHaveTextContent('11:30Libre')
+    expect(screen.getByText('Ahora · 11:15')).toBeInTheDocument()
   })
 
-  it('shows every free slot of a past day as past', async () => {
+  it('puts every slot of a past day before now, with no line for now', async () => {
     renderAgenda(SATURDAY_MORNING)
     await dayHeading()
 
     await userEvent.click(button('Día anterior'))
 
-    const slots = within(await daySlots()).getAllByRole('listitem')
-    slots.forEach((slot) => expect(slot).toHaveTextContent('Pasado'))
+    const before = within(await slotGroup('Antes de ahora')).getAllByRole('listitem')
+    expect(before).toHaveLength(8)
+    expect(before[0]).toHaveTextContent('10:00Libre')
+    expect(screen.queryByRole('list', { name: 'Más tarde' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Ahora ·/)).not.toBeInTheDocument()
   })
 })

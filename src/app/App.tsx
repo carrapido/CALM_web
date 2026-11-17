@@ -7,23 +7,26 @@ import { OrdersPage } from '../orders/ui/OrdersPage'
 import { AdminShell } from './layout/AdminShell'
 import { useCurrentPage, type Page } from './navigation'
 
-type AppProps = {
+export type AppProps = {
   agendaRepository: AgendaRepository
   ordersRepository: OrdersRepository
   catalogRepository: CatalogRepository
   now: () => Date
   random: () => number
+  onSignOut: () => void
 }
 
-export function App(props: AppProps) {
+export function App({ onSignOut, ...pageProps }: AppProps) {
   const currentPage = useCurrentPage()
 
   return (
-    <AdminShell currentPageId={currentPage.id}>
-      <PageContent page={currentPage} {...props} />
+    <AdminShell currentPageId={currentPage.id} onSignOut={onSignOut}>
+      <PageContent page={currentPage} {...pageProps} />
     </AdminShell>
   )
 }
+
+type PageContentProps = Omit<AppProps, 'onSignOut'> & { page: Page }
 
 function PageContent({
   page,
@@ -32,7 +35,7 @@ function PageContent({
   catalogRepository,
   now,
   random,
-}: AppProps & { page: Page }) {
+}: PageContentProps) {
   switch (page.id) {
     case 'agenda':
       return <AgendaPage repository={agendaRepository} now={now} />

@@ -9,7 +9,6 @@ type WeekAgendaContainerProps = {
   now: () => Date
   date: CalendarDate
   onChooseDay: (date: CalendarDate) => void
-  onBackToDay: () => void
 }
 
 export function WeekAgendaContainer({
@@ -17,19 +16,12 @@ export function WeekAgendaContainer({
   now,
   date,
   onChooseDay,
-  onBackToDay,
 }: WeekAgendaContainerProps) {
   const dates = weekDates(date)
   const { data } = useQuery(dates[0], () => loadWeek(repository, dates))
 
   return (
-    <WeekView
-      dates={dates}
-      days={data}
-      today={todayInCancun(now())}
-      onChooseDay={onChooseDay}
-      onBackToDay={onBackToDay}
-    />
+    <WeekView dates={dates} days={data} today={todayInCancun(now())} onChooseDay={onChooseDay} />
   )
 }
 
