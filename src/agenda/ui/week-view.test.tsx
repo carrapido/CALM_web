@@ -8,7 +8,7 @@ describe('Agenda week view', () => {
     renderAgenda(SATURDAY_MORNING, { blockedDates: ['2026-10-21'] })
     await dayHeading()
 
-    await userEvent.click(button('Ver semana'))
+    await userEvent.click(button('Semana'))
 
     const days = within(await weekDays()).getAllByRole('listitem')
     expect(days).toHaveLength(7)
@@ -24,12 +24,27 @@ describe('Agenda week view', () => {
   it('opens the day chosen in the week', async () => {
     renderAgenda(SATURDAY_MORNING)
     await dayHeading()
-    await userEvent.click(button('Ver semana'))
+    await userEvent.click(button('Semana'))
     await weekDays()
 
     await userEvent.click(button(/Martes 20 de octubre/))
 
     expect(await dayHeading()).toHaveTextContent('Martes 20 de octubre')
+  })
+
+  it('marks the view being shown and goes back to the day', async () => {
+    renderAgenda(SATURDAY_MORNING)
+    await dayHeading()
+
+    expect(button('Día')).toHaveAttribute('aria-pressed', 'true')
+    expect(button('Semana')).toHaveAttribute('aria-pressed', 'false')
+
+    await userEvent.click(button('Semana'))
+    await weekDays()
+    expect(button('Semana')).toHaveAttribute('aria-pressed', 'true')
+
+    await userEvent.click(button('Día'))
+    expect(await dayHeading()).toHaveTextContent('Hoy, sábado 24 de octubre')
   })
 })
 

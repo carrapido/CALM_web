@@ -1,10 +1,8 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { InMemoryAgendaRepository } from '../agenda/infrastructure/in-memory-agenda-repository'
-import { InMemoryCatalogRepository } from '../catalog/infrastructure/in-memory-catalog-repository'
-import { InMemoryOrdersRepository } from '../orders/infrastructure/in-memory-orders-repository'
 import { App } from './App'
+import { emptyPanelProps } from './app-test-kit'
 
 describe('Admin shell navigation', () => {
   beforeEach(() => {
@@ -60,31 +58,10 @@ describe('Admin shell navigation', () => {
     expect(screen.getByText('Administradora')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Administradora' })).not.toBeInTheDocument()
   })
-
 })
 
 function renderApp() {
-  const agendaRepository = new InMemoryAgendaRepository({
-    schedule: {
-      monday: { isOpen: false },
-      tuesday: { isOpen: false },
-      wednesday: { isOpen: false },
-      thursday: { isOpen: false },
-      friday: { isOpen: false },
-      saturday: { isOpen: false },
-      sunday: { isOpen: false },
-    },
-    appointments: [],
-  })
-  render(
-    <App
-      agendaRepository={agendaRepository}
-      ordersRepository={new InMemoryOrdersRepository([])}
-      catalogRepository={new InMemoryCatalogRepository([])}
-      now={() => new Date()}
-      random={Math.random}
-    />,
-  )
+  render(<App {...emptyPanelProps()} />)
 }
 
 function pageHeading(name: string): HTMLElement {

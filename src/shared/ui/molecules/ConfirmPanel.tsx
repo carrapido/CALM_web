@@ -28,7 +28,7 @@ export function ConfirmPanel({
   onKeep,
 }: ConfirmPanelProps) {
   return (
-    <div className={`flex flex-col gap-space-sm rounded-lg p-space-md ${TONES[tone].panel}`}>
+    <div className={`flex flex-col gap-space-sm rounded-xl p-space-md ${TONES[tone].panel}`}>
       <p className="text-title-md">{question}</p>
       {detail && <p>{detail}</p>}
       <div className="grid gap-space-sm sm:grid-cols-2">

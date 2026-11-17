@@ -9,36 +9,31 @@ type DayAgendaContainerProps = {
   now: () => Date
   date: CalendarDate
   onDateChange: (date: CalendarDate) => void
-  onShowWeek: () => void
 }
 
-export function DayAgendaContainer({
-  repository,
-  now,
-  date,
-  onDateChange,
-  onShowWeek,
-}: DayAgendaContainerProps) {
+export function DayAgendaContainer({ repository, now, date, onDateChange }: DayAgendaContainerProps) {
   const currentMoment = momentInCancun(now())
   const today = currentMoment.date
   const { data, reload } = useQuery(date, () => loadDay(repository, date))
-  // Built on render, not when loading, so slots past the current time read "Pasado".
+  // Built on render, not when loading, so slots move before "Ahora" as time passes.
   const agenda =
     data && dayAgenda(data.schedule, date, data.appointments, data.blockedDates, currentMoment)
 
   const changeThenReload = (change: Promise<void>) => change.then(reload)
 
   return (
+    // A new day starts with no appointment chosen.
     <DayView
+      key={date}
       date={date}
       isToday={date === today}
       isPast={date < today}
+      currentTime={currentMoment.time}
       agenda={agenda}
       navigation={{
         onPreviousDay: () => onDateChange(addDays(date, -1)),
         onNextDay: () => onDateChange(addDays(date, 1)),
         onBackToToday: () => onDateChange(today),
-        onShowWeek,
       }}
       actions={{
         onCancelAppointment: (ticket) => changeThenReload(repository.cancelAppointment(ticket)),

@@ -1,4 +1,3 @@
-import { Button } from '../../../shared/ui/atoms/Button'
 import { Icon } from '../../../shared/ui/atoms/Icon'
 import type { CalendarDate } from '../../../shared/domain/calendar-date'
 import type { WeekDaySummary } from '../../domain/week-agenda'
@@ -9,18 +8,14 @@ type WeekViewProps = {
   days: WeekDaySummary[] | undefined
   today: CalendarDate
   onChooseDay: (date: CalendarDate) => void
-  onBackToDay: () => void
 }
 
-export function WeekView({ dates, days, today, onChooseDay, onBackToDay }: WeekViewProps) {
+export function WeekView({ dates, days, today, onChooseDay }: WeekViewProps) {
   return (
     <div className="mt-space-lg flex flex-col gap-space-lg">
       <h2 className="text-headline-lg text-on-surface">
         Semana {formatDateRange(dates[0], dates[dates.length - 1])}
       </h2>
-      <Button icon="chevron_left" onClick={onBackToDay} className="sm:self-start">
-        Volver al día
-      </Button>
       {days === undefined ? (
         <p className="text-on-surface-variant">Cargando la semana…</p>
       ) : (

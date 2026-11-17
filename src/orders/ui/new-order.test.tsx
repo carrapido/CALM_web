@@ -1,66 +1,106 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { activeOrders, button, cardsIn, currentStep, orderCard, renderOrders } from './orders-test-kit'
+import {
+  button,
+  chooseOrder,
+  currentStep,
+  fact,
+  ordersInWorkshop,
+  renderOrders,
+  rowsIn,
+} from './orders-test-kit'
 
-describe('New order from an appointment', () => {
-  it("lists today's and recent appointments that have no order yet", async () => {
+describe('New order sheet', () => {
+  it("offers today's and recent appointments without an order, and walk-in clients", async () => {
     await openNewOrder()
 
-    const appointments = within(appointmentsWithoutOrder()).getAllByRole('listitem')
+    const choices = within(origin()).getAllByRole('radio')
 
-    expect(appointments).toHaveLength(2)
-    expect(appointments[0]).toHaveTextContent('Hoy · 10:30 · María López')
-    expect(appointments[1]).toHaveTextContent('Viernes 23 de octubre · 11:00 · Juan Pérez')
-    expect(button('Cliente sin cita')).toBeInTheDocument()
+    expect(choices).toHaveLength(3)
+    expect(choices[0]).toHaveAccessibleName('María López')
+    expect(choices[0]).toHaveAccessibleDescription('Hoy a las 10:30 · Ticket 4821')
+    expect(choices[1]).toHaveAccessibleName('Juan Pérez')
+    expect(choices[1]).toHaveAccessibleDescription('Viernes 23 de octubre a las 11:00 · Ticket 0937')
+    expect(choices[2]).toHaveAccessibleName('Llegó sin cita')
   })
 
-  it("registers the order with the appointment's ticket and client", async () => {
+  it('starts on the first appointment with its client prefilled', async () => {
     await openNewOrder()
 
-    await userEvent.click(button(/María López/))
+    expect(screen.getByRole('radio', { name: 'María López' })).toBeChecked()
     expect(field('Nombre del cliente')).toHaveValue('María López')
     expect(field('WhatsApp (opcional)')).toHaveValue('9981234567')
     expect(field('Trabajo a realizar')).toHaveValue('Dobladillo de pantalón, Cambio de cierre')
-    await fillPriceAndDelivery('280', '2026-10-27')
-    await userEvent.click(button('Guardar pedido'))
-
-    expect(await screen.findByText('Ticket 4821')).toBeInTheDocument()
-    await userEvent.click(button('Ver pedidos'))
-    const maria = await orderCard('María López')
-    expect(maria).toHaveTextContent('Ticket 4821')
-    expect(maria).toHaveTextContent('$280 MXN')
-    expect(currentStep(maria)).toBe('Recibido')
+    expect(field('Precio final')).toHaveValue('250')
+    expect(screen.getByText('Conserva el ticket 4821 de su cita.')).toBeInTheDocument()
   })
 
-  it('takes the appointment off the list once it has an order', async () => {
+  it('fills the fields from another appointment', async () => {
     await openNewOrder()
-    await userEvent.click(button(/María López/))
-    await fillPriceAndDelivery('280', '2026-10-27')
-    await userEvent.click(button('Guardar pedido'))
-    await userEvent.click(await screen.findByRole('button', { name: 'Ver pedidos' }))
-    await activeOrders()
 
-    await userEvent.click(button('Nuevo pedido'))
+    await userEvent.click(screen.getByRole('radio', { name: 'Juan Pérez' }))
 
-    const appointments = within(await findAppointmentsWithoutOrder()).getAllByRole('listitem')
-    expect(appointments).toHaveLength(1)
-    expect(appointments[0]).toHaveTextContent('Juan Pérez')
+    expect(field('Nombre del cliente')).toHaveValue('Juan Pérez')
+    expect(field('WhatsApp (opcional)')).toHaveValue('')
+    expect(field('Trabajo a realizar')).toHaveValue('Ajuste de cintura')
+    expect(field('Precio final')).toHaveValue('180')
+    expect(screen.getByText('Conserva el ticket 0937 de su cita.')).toBeInTheDocument()
+  })
+
+  it('empties the fields for a client who came without an appointment', async () => {
+    await openNewOrder()
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Llegó sin cita' }))
+
+    expect(field('Nombre del cliente')).toHaveValue('')
+    expect(field('Trabajo a realizar')).toHaveValue('')
+    expect(field('Precio final')).toHaveValue('')
+    expect(screen.getByText('Se crea un ticket nuevo de 4 números.')).toBeInTheDocument()
   })
 })
 
-describe('New order for a walk-in client', () => {
-  it('gives the order a new ticket that no active order uses', async () => {
-    // 0.55125 would draw 5512, Lucía's active ticket, so the next draw is used.
-    renderOrders({ randomValues: [0.55125, 0.12345] })
-    await activeOrders()
+describe('Registering an order', () => {
+  it("registers the order with the appointment's ticket", async () => {
+    await openNewOrder()
+
+    await fillPriceAndDelivery('280', '2026-10-27')
+    await userEvent.click(button('Registrar pedido'))
+
+    expect(await screen.findByRole('heading', { name: 'Pedido registrado' })).toBeInTheDocument()
+    expect(screen.getByText('Ticket 4821')).toBeInTheDocument()
+    await userEvent.click(button('Ver pedidos'))
+    const detail = await chooseOrder('María López')
+    expect(within(detail).getByText('Ticket 4821')).toBeInTheDocument()
+    expect(fact(detail, 'Total, se paga en el taller')).toBe('$280 MXN')
+    expect(currentStep(detail)).toBe('Recibido')
+  })
+
+  it('takes the appointment off the choices once it has an order', async () => {
+    await openNewOrder()
+    await fillPriceAndDelivery('280', '2026-10-27')
+    await userEvent.click(button('Registrar pedido'))
+    await userEvent.click(await screen.findByRole('button', { name: 'Ver pedidos' }))
+    await ordersInWorkshop()
+
     await userEvent.click(button('Nuevo pedido'))
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Cliente sin cita' }))
+    const choices = within(await findOrigin()).getAllByRole('radio')
+    expect(choices).toHaveLength(2)
+    expect(choices[0]).toHaveAccessibleName('Juan Pérez')
+  })
+
+  it('gives a walk-in order a new ticket that no active order uses', async () => {
+    // 0.55125 would draw 5512, Lucía's active ticket, so the next draw is used.
+    renderOrders({ randomValues: [0.55125, 0.12345] })
+    await ordersInWorkshop()
+    await userEvent.click(button('Nuevo pedido'))
+    await userEvent.click(within(await findOrigin()).getByRole('radio', { name: 'Llegó sin cita' }))
+
     await userEvent.type(field('Nombre del cliente'), 'Ana Martínez')
     await userEvent.type(field('Trabajo a realizar'), 'Ajuste de vestido')
     await fillPriceAndDelivery('300', '2026-10-30')
-    await userEvent.click(button('Guardar pedido'))
+    await userEvent.click(button('Registrar pedido'))
 
     expect(await screen.findByText('Ticket 1234')).toBeInTheDocument()
     expect(screen.getByText('Anota este número en el recibo del cliente.')).toBeInTheDocument()
@@ -68,11 +108,11 @@ describe('New order for a walk-in client', () => {
 
   it('refuses an order with missing or wrong data and saves nothing', async () => {
     await openNewOrder()
-    await userEvent.click(button('Cliente sin cita'))
+    await userEvent.click(screen.getByRole('radio', { name: 'Llegó sin cita' }))
 
     await userEvent.type(field('WhatsApp (opcional)'), '99812')
     await fillPriceAndDelivery('0', '2026-10-23')
-    await userEvent.click(button('Guardar pedido'))
+    await userEvent.click(button('Registrar pedido'))
 
     expect(screen.getByText('Escribe el nombre del cliente')).toBeInTheDocument()
     expect(screen.getByText('El WhatsApp debe tener 10 números')).toBeInTheDocument()
@@ -81,23 +121,23 @@ describe('New order for a walk-in client', () => {
     expect(screen.getByText('Elige una fecha de entrega de hoy en adelante')).toBeInTheDocument()
 
     await userEvent.click(button('Volver sin guardar'))
-    expect(cardsIn(await activeOrders())).toHaveLength(2)
+    expect(rowsIn(await ordersInWorkshop())).toHaveLength(2)
   })
 })
 
 async function openNewOrder() {
   renderOrders()
-  await activeOrders()
+  await ordersInWorkshop()
   await userEvent.click(button('Nuevo pedido'))
-  await findAppointmentsWithoutOrder()
+  await findOrigin()
 }
 
-function appointmentsWithoutOrder(): HTMLElement {
-  return screen.getByRole('list', { name: 'Citas sin pedido' })
+function origin(): HTMLElement {
+  return screen.getByRole('group', { name: '¿De qué cita viene?' })
 }
 
-function findAppointmentsWithoutOrder(): Promise<HTMLElement> {
-  return screen.findByRole('list', { name: 'Citas sin pedido' })
+function findOrigin(): Promise<HTMLElement> {
+  return screen.findByRole('group', { name: '¿De qué cita viene?' })
 }
 
 function field(label: string): HTMLElement {
@@ -105,7 +145,7 @@ function field(label: string): HTMLElement {
 }
 
 async function fillPriceAndDelivery(price: string, deliveryDate: string) {
-  await userEvent.clear(field('Precio final (MXN)'))
-  await userEvent.type(field('Precio final (MXN)'), price)
+  await userEvent.clear(field('Precio final'))
+  await userEvent.type(field('Precio final'), price)
   await userEvent.type(field('Fecha de entrega'), deliveryDate)
 }

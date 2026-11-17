@@ -19,3 +19,30 @@ Constraint for every feature: the admin is an older person with little tech expe
 3. [Agenda y horario](tasks/agenda.md) — done
 4. [Pedidos](tasks/pedidos.md) — done
 5. [Catálogo de servicios](tasks/catalogo.md) — done
+
+> "usando este html de mock ups como referencia, remodela diseño de la pagina web de calm, recuerad usar apple design y usar los artifacts"
+> "agregalos al proyecto calm_web"
+
+Decision 2026-11-17: restyle the admin panel with Apple's design language. The reference is the "Calm Redesign" design canvas (https://claude.ai/artifact/6oAafehDFU5Qi6phWcUECF), built from the client-app mockups "Costurando a la medida: menor fricción" plus the user's own edits on 2026-11-16. Each feature below brings one area of the canvas into the code. The older-admin constraint above still rules every screen.
+
+6. [Estilo Apple: tokens y marco del panel](tasks/apple-shell.md) — done
+7. [Agenda del día con detalle de cita](tasks/agenda-apple.md) — done
+8. [Mi horario y bloquear un día](tasks/horario-apple.md) — done
+9. [Pedidos: lista, detalle y hoja de nuevo pedido](tasks/pedidos-apple.md) — done
+10. [Catálogo: lista y panel de edición](tasks/catalogo-apple.md) — pending
+11. [Registrar pedido desde la cita](tasks/pedido-desde-cita.md) — pending
+
+> "usa este diagrama de bd para hcaer toda la bd"
+> "conectalo a la version web y a la version. mobile en flutter"
+
+Decision 2026-11-17: the schema from `CALM_BD.drawio` is applied to the Supabase project CALM (`supabase/migrations/`). Both the admin panel (this repository) and the client app in Flutter (`/Users/crpd/CALM_mobile`) move from sample data to that database. Clients sign in with phone and NIP, as the diagram and the Flutter app have it; see objective 12. Objective 10 is paused meanwhile.
+
+12. [Acceso a la base: sesiones y políticas](tasks/acceso-supabase.md) — done
+13. [Panel web: entrar como administradora](tasks/web-entrar.md) — in-progress
+14. [Panel web: catálogo en Supabase](tasks/web-catalogo-supabase.md) — pending
+15. [Panel web: agenda, horario y días bloqueados en Supabase](tasks/web-agenda-supabase.md) — pending
+16. [Panel web: pedidos en Supabase](tasks/web-pedidos-supabase.md) — pending
+17. [App Flutter: conexión y entrada con celular y NIP](tasks/movil-entrar.md) — pending
+18. [App Flutter: servicios y agendar cita](tasks/movil-servicios-cita.md) — pending
+19. [App Flutter: mis pedidos y voy en camino](tasks/movil-pedidos.md) — pending
+20. [App Flutter: perfil](tasks/movil-perfil.md) — pending

@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { createElement } from 'react'
 import type { Appointment } from '../../agenda/domain/appointment'
 import type { WeeklySchedule } from '../../agenda/domain/schedule'
@@ -54,24 +55,28 @@ const APPOINTMENTS: Appointment[] = [
   },
 ]
 
+export const LUCIA_RECEIVED: Order = {
+  ticket: '5512',
+  clientName: 'Lucía Gómez',
+  whatsapp: '9985551234',
+  work: 'Ajuste de vestido de novia',
+  finalPriceMxn: 900,
+  deliveryDate: '2026-10-28',
+  status: 'received',
+}
+
+export const CARLOS_READY: Order = {
+  ticket: '7720',
+  clientName: 'Carlos Ruiz',
+  work: 'Cambio de cierre de chamarra',
+  finalPriceMxn: 150,
+  deliveryDate: '2026-10-25',
+  status: 'ready',
+}
+
 const ORDERS: Order[] = [
-  {
-    ticket: '5512',
-    clientName: 'Lucía Gómez',
-    whatsapp: '9985551234',
-    work: 'Ajuste de vestido de novia',
-    finalPriceMxn: 900,
-    deliveryDate: '2026-10-28',
-    status: 'received',
-  },
-  {
-    ticket: '7720',
-    clientName: 'Carlos Ruiz',
-    work: 'Cambio de cierre de chamarra',
-    finalPriceMxn: 150,
-    deliveryDate: '2026-10-25',
-    status: 'ready',
-  },
+  LUCIA_RECEIVED,
+  CARLOS_READY,
   {
     ticket: '3301',
     clientName: 'Elena Díaz',
@@ -114,27 +119,38 @@ export function renderOrders({ randomValues = [0.12345], orders = ORDERS }: Orde
   )
 }
 
-export function activeOrders(): Promise<HTMLElement> {
-  return screen.findByRole('list', { name: 'Pedidos activos' })
+export function ordersInWorkshop(): Promise<HTMLElement> {
+  return screen.findByRole('list', { name: 'Pedidos en el taller' })
 }
 
-// Direct items only: each card nests its own status stepper list.
-export function cardsIn(list: HTMLElement): HTMLElement[] {
-  return within(list)
-    .getAllByRole('listitem')
-    .filter((item) => item.parentElement === list)
+// Each row is the button that opens the order's detail.
+export function rowsIn(list: HTMLElement): HTMLElement[] {
+  return within(list).getAllByRole('button')
 }
 
-export async function orderCard(clientName: string): Promise<HTMLElement> {
-  const cards = cardsIn(await activeOrders())
-  const card = cards.find((item) => item.textContent?.includes(clientName))
-  if (card === undefined) throw new Error(`No active order for ${clientName}`)
-  return card
+export function rowOf(clientName: string): HTMLElement {
+  const list = screen.getByRole('list', { name: 'Pedidos en el taller' })
+  return within(list).getByRole('button', { name: new RegExp(clientName) })
 }
 
-export function currentStep(card: HTMLElement): string | null | undefined {
-  const stepper = within(card).getByRole('list', { name: 'Estado del pedido' })
-  return stepper.querySelector('[aria-current="step"]')?.textContent
+export async function chooseOrder(clientName: string): Promise<HTMLElement> {
+  await ordersInWorkshop()
+  await userEvent.click(rowOf(clientName))
+  return orderDetail()
+}
+
+export function orderDetail(): HTMLElement {
+  return screen.getByRole('region', { name: 'Detalle del pedido' })
+}
+
+export function currentStep(detail: HTMLElement): string | null | undefined {
+  const progress = within(detail).getByRole('list', { name: 'Avance del pedido' })
+  return progress.querySelector('[aria-current="step"]')?.textContent
+}
+
+// The value a fact list gives for a term, e.g. "Entrega".
+export function fact(detail: HTMLElement, term: string): string | null | undefined {
+  return within(detail).getByText(term).nextElementSibling?.textContent
 }
 
 export function button(name: string | RegExp): HTMLElement {

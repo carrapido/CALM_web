@@ -1,18 +1,17 @@
 import type { AgendaRepository } from '../../../agenda/application/agenda-repository'
 import type { Appointment } from '../../../agenda/domain/appointment'
 import type { CalendarDate } from '../../../shared/domain/calendar-date'
+import { useQuery } from '../../../shared/ui/useQuery'
+import { appointmentsAwaitingOrder } from '../../application/appointments-awaiting-order'
 import type { OrdersRepository } from '../../application/orders-repository'
 import { registerOrder, type OrderDetails } from '../../application/register-order'
-import type { NewOrderDraft } from '../../domain/new-order'
-import { NewOrderForm } from './NewOrderForm'
+import { NewOrderSheet } from './NewOrderSheet'
 
 type NewOrderContainerProps = {
   ordersRepository: OrdersRepository
   agendaRepository: AgendaRepository
   random: () => number
   today: CalendarDate
-  // The appointment the client came to; undefined for a walk-in client.
-  appointment: Appointment | undefined
   onRegistered: (ticket: string) => void
   onCancel: () => void
 }
@@ -22,11 +21,15 @@ export function NewOrderContainer({
   agendaRepository,
   random,
   today,
-  appointment,
   onRegistered,
   onCancel,
 }: NewOrderContainerProps) {
-  const register = (details: OrderDetails) =>
+  const { data: appointments } = useQuery('appointments-awaiting-order', () =>
+    appointmentsAwaitingOrder(agendaRepository, ordersRepository, today),
+  )
+
+  // An order from an appointment keeps its ticket; a walk-in client gets a new one.
+  const register = (details: OrderDetails, appointment: Appointment | undefined) =>
     registerOrder(
       { orders: ordersRepository, agenda: agendaRepository, random },
       details,
@@ -34,26 +37,11 @@ export function NewOrderContainer({
       today,
     ).then((order) => onRegistered(order.ticket))
 
+  // The sheet starts on the first appointment, so it waits for the list.
+  if (appointments === undefined) {
+    return <p className="mt-space-lg text-on-surface-variant">Cargando las citas…</p>
+  }
   return (
-    <NewOrderForm
-      initialDraft={draftFrom(appointment)}
-      today={today}
-      onSave={register}
-      onCancel={onCancel}
-    />
+    <NewOrderSheet appointments={appointments} today={today} onRegister={register} onCancel={onCancel} />
   )
-}
-
-// From an appointment, the quote prefills the work and its preliminary total the price.
-function draftFrom(appointment: Appointment | undefined): NewOrderDraft {
-  if (appointment === undefined) {
-    return { clientName: '', whatsapp: '', work: '', finalPrice: '', deliveryDate: '' }
-  }
-  return {
-    clientName: appointment.clientName,
-    whatsapp: appointment.whatsapp ?? '',
-    work: appointment.quote.services.join(', '),
-    finalPrice: String(appointment.quote.preliminaryTotalMxn),
-    deliveryDate: '',
-  }
 }

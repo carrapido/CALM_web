@@ -25,6 +25,17 @@ export function isActive({ status }: Order): boolean {
   return status !== 'delivered' && status !== 'cancelled'
 }
 
+// On the Listo step, whether or not the client said she is on the way.
+export function isReadyForPickup({ status }: Order): boolean {
+  return status === 'ready' || status === 'onTheWay'
+}
+
+// Orders have no id yet. Ticket and delivery date tell them apart, even an old
+// finished order whose ticket a new one reused.
+export function orderKey({ ticket, deliveryDate }: Order): string {
+  return `${ticket}-${deliveryDate}`
+}
+
 // The status a forward step leads to; undefined once the order is finished.
 export function nextStatus(status: OrderStatus): OrderStep | undefined {
   if (status === 'cancelled') return undefined

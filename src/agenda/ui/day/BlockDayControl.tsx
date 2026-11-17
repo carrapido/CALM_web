@@ -22,7 +22,7 @@ export function BlockDayControl({ date, appointmentCount, onBlock }: BlockDayCon
     return (
       <ConfirmPanel
         question={`¿Bloquear el ${formatLongDate(date)}?`}
-        detail="Ningún cliente podrá agendar ese día."
+        detail="Tus clientes no podrán agendar ese día. Puedes desbloquearlo cuando quieras."
         confirmLabel="Sí, bloquear el día"
         keepLabel="No, dejarlo abierto"
         onConfirm={onBlock}
@@ -32,11 +32,13 @@ export function BlockDayControl({ date, appointmentCount, onBlock }: BlockDayCon
   }
 
   return (
-    <div className="flex flex-col gap-space-sm border-t border-surface-container-highest pt-space-lg">
-      <p className="text-on-surface-variant">¿No vas a abrir este día?</p>
-      <Button icon="block" onClick={askToBlock} className="sm:self-start">
-        Bloquear este día
-      </Button>
+    <div className="mt-space-sm flex flex-col gap-space-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-surface-container-lowest px-5 py-4">
+        <p className="text-title-md text-on-surface">¿No vas a abrir este día?</p>
+        <Button icon="block" onClick={askToBlock}>
+          Bloquear este día
+        </Button>
+      </div>
       {step === 'refused' && <RefusalMessage appointmentCount={appointmentCount} />}
     </div>
   )

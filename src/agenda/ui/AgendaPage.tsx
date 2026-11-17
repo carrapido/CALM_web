@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Button } from '../../shared/ui/atoms/Button'
+import { SegmentedControl } from '../../shared/ui/molecules/SegmentedControl'
 import { PageFrame } from '../../shared/ui/templates/PageFrame'
 import type { AgendaRepository } from '../application/agenda-repository'
 import { todayInCancun, type CalendarDate } from '../../shared/domain/calendar-date'
@@ -13,6 +14,11 @@ type AgendaPageProps = {
 }
 
 type AgendaView = 'day' | 'week' | 'schedule'
+
+const CALENDAR_VIEWS = [
+  { value: 'day', label: 'Día' },
+  { value: 'week', label: 'Semana' },
+] as const
 
 export function AgendaPage({ repository, now }: AgendaPageProps) {
   const [view, setView] = useState<AgendaView>('day')
@@ -31,13 +37,17 @@ export function AgendaPage({ repository, now }: AgendaPageProps) {
 
   return (
     <PageFrame title="Agenda" action={myScheduleButton}>
+      {view !== 'schedule' && (
+        <div className="mt-space-lg flex">
+          <SegmentedControl label="Vista" options={CALENDAR_VIEWS} value={view} onChange={setView} />
+        </div>
+      )}
       {view === 'day' && (
         <DayAgendaContainer
           repository={repository}
           now={now}
           date={selectedDate}
           onDateChange={setSelectedDate}
-          onShowWeek={() => setView('week')}
         />
       )}
       {view === 'week' && (
@@ -46,11 +56,14 @@ export function AgendaPage({ repository, now }: AgendaPageProps) {
           now={now}
           date={selectedDate}
           onChooseDay={showDay}
-          onBackToDay={() => setView('day')}
         />
       )}
       {view === 'schedule' && (
-        <MyScheduleContainer repository={repository} onDone={() => setView('day')} />
+        <MyScheduleContainer
+          repository={repository}
+          today={todayInCancun(now())}
+          onDone={() => setView('day')}
+        />
       )}
     </PageFrame>
   )

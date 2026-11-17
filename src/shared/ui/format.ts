@@ -18,6 +18,12 @@ export function formatLongDate(date: CalendarDate): string {
   return `${WEEKDAY.format(midnight)} ${DAY_AND_MONTH.format(midnight)}`
 }
 
+// "Hoy, sábado 24 de octubre" on today; "Domingo 25 de octubre" on any other day.
+export function formatDayLabel(date: CalendarDate, isToday: boolean): string {
+  const longDate = formatLongDate(date)
+  return isToday ? `Hoy, ${longDate}` : capitalize(longDate)
+}
+
 // "del 19 al 25 de octubre", or "del 26 de octubre al 1 de noviembre" across months.
 export function formatDateRange(first: CalendarDate, last: CalendarDate): string {
   const firstDate = utcMidnightOf(first)
