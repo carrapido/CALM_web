@@ -1,0 +1,175 @@
+// What every client-facing function needs to know who is asking: the phone and NIP check, its
+// per-phone throttle, and the session the app installs afterwards.
+//
+// The NIP is verified here and nowhere else: `clients.nip_hash` holds an argon2id hash, the raw
+// NIP never reaches the database, and the app never stores it.
+// Spec: CALM_mobile odd/tasks/acceso-cliente-supabase.md, odd/tasks/acciones-cliente.md.
+import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
+import { argon2id, argon2Verify } from 'npm:hash-wasm@4'
+
+export const PHONE_PATTERN = /^\d{10}$/
+export const NIP_PATTERN = /^\d{4}$/
+
+// A phone is locked out after this many consecutive failures, for this long.
+const MAX_FAILURES = 5
+const LOCKOUT_MINUTES = 15
+
+// Answered to every rejected pair, so a wrong NIP and an unknown phone look the same.
+export const REJECTED = 'Tu celular o tu NIP no coinciden.'
+export const THROTTLED = 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.'
+export const UNAVAILABLE = 'No pudimos abrir tu sesión. Inténtalo de nuevo.'
+
+// Verified against when the phone has no NIP, so answering takes about as long either way.
+const DECOY_HASH =
+  '$argon2id$v=19$m=19456,t=2,p=1$hjQlfpqkLALK0NuPZmC2VA$lzOmu8EsFiCoxXDQ5lXPdg+ZBdshUNG00nHtgb3KIjo'
+
+export const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+export type ClientRow = {
+  id: number
+  name: string
+  phone: string | null
+  nip_hash: string | null
+  user_id: string | null
+}
+
+export function digitsOf(value: unknown): string {
+  return typeof value === 'string' ? value.replace(/\D/g, '') : ''
+}
+
+/// The service role bypasses row level security: it is the only way to read `nip_hash` and to link
+/// a client to her auth user. It lives in the function's environment, never in the app.
+export function adminClient(): SupabaseClient {
+  return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
+
+/// `clients.phone` is unique, so a phone names at most one client.
+export async function clientWithPhone(admin: SupabaseClient, phone: string): Promise<ClientRow | null> {
+  const { data, error } = await admin
+    .from('clients')
+    .select('id, name, phone, nip_hash, user_id')
+    .eq('phone', phone)
+    .maybeSingle()
+  if (error !== null) throw error
+  return (data as ClientRow | null) ?? null
+}
+
+export async function nipMatches(nip: string, hash: string | null): Promise<boolean> {
+  // A phone with no NIP still pays for a verification, so the answer takes about as long.
+  const matched = await argon2Verify({ password: nip, hash: hash ?? DECOY_HASH }).catch(() => false)
+  return hash !== null && matched
+}
+
+/// The same parameters every stored NIP was hashed with.
+export function hashNip(nip: string): Promise<string> {
+  return argon2id({
+    password: nip,
+    salt: crypto.getRandomValues(new Uint8Array(16)),
+    parallelism: 1,
+    iterations: 2,
+    memorySize: 19456,
+    hashLength: 32,
+    outputType: 'encoded',
+  })
+}
+
+export async function isLockedOut(admin: SupabaseClient, phone: string): Promise<boolean> {
+  const { data } = await admin
+    .from('sign_in_attempts')
+    .select('locked_until')
+    .eq('phone', phone)
+    .maybeSingle()
+  const lockedUntil = (data as { locked_until: string | null } | null)?.locked_until
+  return lockedUntil != null && new Date(lockedUntil) > new Date()
+}
+
+export async function countFailure(admin: SupabaseClient, phone: string): Promise<void> {
+  const { data } = await admin
+    .from('sign_in_attempts')
+    .select('failures')
+    .eq('phone', phone)
+    .maybeSingle()
+  const failures = ((data as { failures: number } | null)?.failures ?? 0) + 1
+  const lockedUntil = failures >= MAX_FAILURES
+    ? new Date(Date.now() + LOCKOUT_MINUTES * 60_000).toISOString()
+    : null
+  await admin.from('sign_in_attempts').upsert({ phone, failures, locked_until: lockedUntil })
+}
+
+export async function clearFailures(admin: SupabaseClient, phone: string): Promise<void> {
+  await admin.from('sign_in_attempts').delete().eq('phone', phone)
+}
+
+/// Her auth user, created on her first sign-in and remembered in `clients.user_id`.
+export async function authUserIdOf(admin: SupabaseClient, client: ClientRow): Promise<string> {
+  if (client.user_id !== null) return client.user_id
+
+  // Supabase Auth needs an identifier of its own; the phone remains the real identity, and this
+  // alias is never shown to anyone nor used to send mail.
+  const { data, error } = await admin.auth.admin.createUser({
+    email: `${client.phone}@clients.calm.app`,
+    email_confirm: true,
+    password: crypto.randomUUID() + crypto.randomUUID(),
+    user_metadata: { client_id: client.id },
+  })
+  if (error !== null || data.user === null) throw error ?? new Error('No se pudo crear el usuario')
+
+  const linked = await admin.from('clients').update({ user_id: data.user.id }).eq('id', client.id)
+  if (linked.error !== null) throw linked.error
+  return data.user.id
+}
+
+/// A refresh token for her, without a password: a magic link is minted and redeemed here, never
+/// sent by mail. The app exchanges it for a session of its own.
+export async function refreshTokenFor(admin: SupabaseClient, userId: string): Promise<string | null> {
+  const { data: user } = await admin.auth.admin.getUserById(userId)
+  const email = user.user?.email
+  if (email === undefined) return null
+
+  const link = await admin.auth.admin.generateLink({ type: 'magiclink', email })
+  const tokenHash = link.data.properties?.hashed_token
+  if (link.error !== null || tokenHash === undefined) return null
+
+  const anon = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  const redeemed = await anon.auth.verifyOtp({ token_hash: tokenHash, type: 'email' })
+  if (redeemed.error !== null || redeemed.data.session === null) return null
+  return redeemed.data.session.refresh_token
+}
+
+export function clientSummary(client: ClientRow) {
+  return { id: client.id, name: client.name, phone: client.phone }
+}
+
+export function problem(status: number, message: string, code?: string): Response {
+  return answer(status, code === undefined ? { error: message } : { error: message, code })
+}
+
+export function answer(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+  })
+}
+
+/// Runs [handle] for a POST, answering the CORS preflight, and turns anything it throws into one
+/// wording while the detail goes to the function log, never to the caller.
+export function serveClientFunction(name: string, handle: (request: Request) => Promise<Response>) {
+  Deno.serve(async (request) => {
+    if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS })
+    if (request.method !== 'POST') return problem(405, 'Método no permitido.')
+    try {
+      return await handle(request)
+    } catch (failure) {
+      console.error(`${name} failed`, failure)
+      return problem(500, UNAVAILABLE)
+    }
+  })
+}
