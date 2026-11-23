@@ -4,9 +4,10 @@
 // the panel's agenda rules, the total is computed from the catalog, and the ticket follows the
 // panel's rule. A phone that already has an account needs its NIP, checked under the same
 // per-phone throttle as sign-in; a phone with no NIP is refused, because knowing a phone alone
-// never grants access to an account.
+// never grants access to an account. A client with a session is already known: she books with no
+// name, phone or NIP, and keeps the session she has.
 //
-// Spec: CALM_mobile odd/tasks/acciones-cliente.md (S2-S5).
+// Spec: CALM_mobile odd/tasks/acciones-cliente.md (S2-S5), odd/tasks/agendar-con-sesion.md (S3).
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import {
   adminClient,
@@ -26,6 +27,7 @@ import {
   refreshTokenFor,
   REJECTED,
   serveClientFunction,
+  signedInClient,
   THROTTLED,
   UNAVAILABLE,
 } from '../_shared/client-auth.ts'
@@ -41,26 +43,34 @@ const BOOKING_HORIZON_DAYS = 62
 const TICKET_COUNT = 10_000
 
 type Booking = {
-  name: string
-  phone: string
-  nip: string
   serviceIds: number[]
   isUrgent: boolean
   date: string
   time: string
 }
 
-serveClientFunction('client-book', async (request) => {
-  const booking = readBooking(await request.json().catch(() => null))
-  if (booking === null) return problem(400, 'Revisa los datos de tu cita.')
+/// What a client without a session types so the phone and NIP open or reach her account.
+type Contact = {
+  name: string
+  phone: string
+  nip: string
+}
 
+/// Who books: the client her session names, or the contact a client without one typed.
+type Booker = { signedIn: ClientRow } | { contact: Contact }
+
+serveClientFunction('client-book', async (request) => {
   const admin = adminClient()
+  const body = await request.json().catch(() => null)
+  const booking = readBooking(body)
+  const booker = await bookerOf(admin, request, body)
+  if (booking === null || booker === null) return problem(400, 'Revisa los datos de tu cita.')
 
   const quote = await quoteOf(admin, booking)
   if (quote === null) return problem(409, SERVICE_UNAVAILABLE, 'service_unavailable')
   if (!(await isBookable(admin, booking))) return problem(409, SLOT_TAKEN, 'slot_taken')
 
-  const client = await clientFor(admin, booking)
+  const client = 'signedIn' in booker ? booker.signedIn : await clientFor(admin, booker.contact)
   if (client === 'throttled') return problem(429, THROTTLED)
   if (client === 'rejected') return problem(401, REJECTED)
   if (client === 'without_nip') return problem(409, PHONE_WITHOUT_NIP, 'phone_without_nip')
@@ -89,40 +99,54 @@ serveClientFunction('client-book', async (request) => {
     throw links.error
   }
 
-  await clearFailures(admin, booking.phone)
+  const appointmentSummary = { date: booking.date, time: booking.time, total_mxn: quote.totalMxn }
+  // Her session already says who she is: no NIP was checked and no new session is needed.
+  if ('signedIn' in booker) {
+    return answer(200, { ticket, client: clientSummary(client), appointment: appointmentSummary })
+  }
+
+  await clearFailures(admin, booker.contact.phone)
   const refreshToken = await refreshTokenFor(admin, await authUserIdOf(admin, client))
   if (refreshToken === null) return problem(500, UNAVAILABLE)
   return answer(200, {
     ticket,
     refresh_token: refreshToken,
     client: clientSummary(client),
-    appointment: { date: booking.date, time: booking.time, total_mxn: quote.totalMxn },
+    appointment: appointmentSummary,
   })
 })
 
+/// The repairs and the slot, which every booking needs, with or without a session.
 function readBooking(body: unknown): Booking | null {
   if (typeof body !== 'object' || body === null) return null
   const fields = body as Record<string, unknown>
-  const name = typeof fields.name === 'string' ? fields.name.trim() : ''
-  const phone = digitsOf(fields.phone)
-  const nip = digitsOf(fields.nip)
   const ids = Array.isArray(fields.service_ids) ? fields.service_ids : []
   const date = typeof fields.date === 'string' ? fields.date : ''
   const time = typeof fields.time === 'string' ? fields.time : ''
-  const isValid = name.length > 0 && name.length <= 80 &&
-    PHONE_PATTERN.test(phone) && NIP_PATTERN.test(nip) &&
-    ids.length > 0 && ids.length <= 20 && ids.every((id) => Number.isInteger(id) && id > 0) &&
+  const isValid = ids.length > 0 && ids.length <= 20 &&
+    ids.every((id) => Number.isInteger(id) && id > 0) &&
     /^\d{4}-\d{2}-\d{2}$/.test(date) && /^([01]\d|2[0-3]):(00|30)$/.test(time)
   if (!isValid) return null
   return {
-    name,
-    phone,
-    nip,
     serviceIds: [...new Set(ids as number[])],
     isUrgent: fields.urgent === true,
     date,
     time,
   }
+}
+
+/// The signed-in client, whatever contact the body carries; without a session, the name, phone and
+/// NIP she typed, or null when they are incomplete.
+async function bookerOf(admin: SupabaseClient, request: Request, body: unknown): Promise<Booker | null> {
+  const signedIn = await signedInClient(admin, request)
+  if (signedIn !== null) return { signedIn }
+
+  const fields = typeof body === 'object' && body !== null ? body as Record<string, unknown> : {}
+  const name = typeof fields.name === 'string' ? fields.name.trim() : ''
+  const phone = digitsOf(fields.phone)
+  const nip = digitsOf(fields.nip)
+  const isValid = name.length > 0 && name.length <= 80 && PHONE_PATTERN.test(phone) && NIP_PATTERN.test(nip)
+  return isValid ? { contact: { name, phone, nip } } : null
 }
 
 type Quote = { serviceIds: number[]; totalMxn: number }
@@ -175,21 +199,21 @@ async function isBookable(admin: SupabaseClient, booking: Booking): Promise<bool
 /// The client behind the phone: a new account, an existing one whose NIP matches, or a refusal.
 async function clientFor(
   admin: SupabaseClient,
-  booking: Booking,
+  contact: Contact,
 ): Promise<ClientRow | 'rejected' | 'throttled' | 'without_nip'> {
-  const existing = await clientWithPhone(admin, booking.phone)
-  if (existing === null) return (await newClient(admin, booking)) ?? (await clientFor(admin, booking))
+  const existing = await clientWithPhone(admin, contact.phone)
+  if (existing === null) return (await newClient(admin, contact)) ?? (await clientFor(admin, contact))
   if (existing.nip_hash === null) return 'without_nip'
   // The same per-phone claim as sign-in, so booking is no way around it.
-  if (!(await claimNipAttempt(admin, booking.phone))) return 'throttled'
-  return (await nipMatches(booking.nip, existing.nip_hash)) ? existing : 'rejected'
+  if (!(await claimNipAttempt(admin, contact.phone))) return 'throttled'
+  return (await nipMatches(contact.nip, existing.nip_hash)) ? existing : 'rejected'
 }
 
 /// Null when the phone was registered meanwhile, so the caller treats it as an existing account.
-async function newClient(admin: SupabaseClient, booking: Booking): Promise<ClientRow | null> {
+async function newClient(admin: SupabaseClient, contact: Contact): Promise<ClientRow | null> {
   const { data, error } = await admin
     .from('clients')
-    .insert({ name: booking.name, phone: booking.phone, nip_hash: await hashNip(booking.nip) })
+    .insert({ name: contact.name, phone: contact.phone, nip_hash: await hashNip(contact.nip) })
     .select('id, name, phone, nip_hash, user_id')
     .single()
   if (error?.code === '23505') return null
