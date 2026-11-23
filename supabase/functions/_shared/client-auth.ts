@@ -96,16 +96,17 @@ export async function authUserIdOf(admin: SupabaseClient, client: ClientRow): Pr
   // Supabase Auth needs an identifier of its own; the phone remains the real identity, and this
   // alias is never shown to anyone nor used to send mail.
   const email = `${client.phone}@clients.calm.app`
-  const userId = (await existingAuthUserId(admin, email)) ?? (await createdAuthUserId(admin, client, email))
+  const userId = (await orphanedAuthUserId(admin, email, client.id)) ?? (await createdAuthUserId(admin, client, email))
   const linked = await admin.from('clients').update({ user_id: userId }).eq('id', client.id)
   if (linked.error !== null) throw linked.error
   return userId
 }
 
-/// An auth user an earlier request created and then failed to link; reused rather than created
-/// again, which Auth would refuse for the same email and leave the client without a session.
-async function existingAuthUserId(admin: SupabaseClient, email: string): Promise<string | null> {
-  const { data, error } = await admin.rpc('auth_user_id_by_email', { p_email: email })
+/// The auth user an earlier request created for this same client and then failed to link; reused
+/// rather than created again, which Auth would refuse for the same email. Only her own and only
+/// unlinked: an auth user left by another client who held the phone is never handed to her.
+async function orphanedAuthUserId(admin: SupabaseClient, email: string, clientId: number): Promise<string | null> {
+  const { data, error } = await admin.rpc('orphaned_auth_user_id', { p_email: email, p_client_id: clientId })
   if (error !== null) throw error
   return (data as string | null) ?? null
 }
