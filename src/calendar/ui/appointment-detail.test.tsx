@@ -2,19 +2,17 @@ import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import {
-  SATURDAY_MORNING,
   appointmentDetail,
   appointmentRow,
   button,
   chooseAppointment,
-  dayHeading,
-  renderAgenda,
+  renderDayView,
   slotGroup,
-} from './agenda-test-kit'
+} from './calendar-test-kit'
 
 describe('Appointment row', () => {
   it('sums up the appointment and marks the next one of today', async () => {
-    renderAgenda(SATURDAY_MORNING)
+    await renderDayView()
 
     const row = await appointmentRow('María López')
 
@@ -26,14 +24,13 @@ describe('Appointment row', () => {
 
   it('marks no appointment as next once it started', async () => {
     // Saturday 11:15 in Cancún.
-    renderAgenda(new Date('2026-10-24T16:15:00Z'))
+    await renderDayView({ now: new Date('2026-10-24T16:15:00Z') })
 
     expect(await appointmentRow('María López')).not.toHaveTextContent('Próxima')
   })
 
   it('marks no appointment as next on another day', async () => {
-    renderAgenda(SATURDAY_MORNING)
-    await dayHeading()
+    await renderDayView()
 
     await userEvent.click(button('Día siguiente'))
     await userEvent.click(button('Día siguiente'))
@@ -44,13 +41,13 @@ describe('Appointment row', () => {
 
 describe('Appointment detail', () => {
   it('asks to choose an appointment before one is chosen', async () => {
-    renderAgenda(SATURDAY_MORNING)
+    await renderDayView()
 
     expect(await appointmentDetail()).toHaveTextContent('Elige una cita para ver su detalle.')
   })
 
   it('shows the chosen appointment', async () => {
-    renderAgenda(SATURDAY_MORNING)
+    await renderDayView()
 
     const detail = await chooseAppointment('María López')
 
@@ -64,7 +61,7 @@ describe('Appointment detail', () => {
   })
 
   it('closes the detail with the back button', async () => {
-    renderAgenda(SATURDAY_MORNING)
+    await renderDayView()
     const detail = await chooseAppointment('María López')
 
     await userEvent.click(within(detail).getByRole('button', { name: 'Volver a la agenda' }))
@@ -74,8 +71,7 @@ describe('Appointment detail', () => {
   })
 
   it('has no detail on a day without appointments', async () => {
-    renderAgenda(SATURDAY_MORNING)
-    await dayHeading()
+    await renderDayView()
 
     await userEvent.click(button('Día anterior'))
     await slotGroup('Antes de ahora')

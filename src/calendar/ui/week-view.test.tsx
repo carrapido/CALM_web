@@ -1,14 +1,13 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { SATURDAY_MORNING, button, dayHeading, renderAgenda } from './agenda-test-kit'
+import { button, dayHeading, renderDayView, segment } from './calendar-test-kit'
 
 describe('Agenda week view', () => {
   it('lists the days of the week being viewed with their appointments', async () => {
-    renderAgenda(SATURDAY_MORNING, { blockedDates: ['2026-10-21'] })
-    await dayHeading()
+    await renderDayView({ blockedDates: ['2026-10-21'] })
 
-    await userEvent.click(button('Semana'))
+    await userEvent.click(segment('Vista', 'Semana'))
 
     const days = within(await weekDays()).getAllByRole('listitem')
     expect(days).toHaveLength(7)
@@ -22,9 +21,8 @@ describe('Agenda week view', () => {
   })
 
   it('opens the day chosen in the week', async () => {
-    renderAgenda(SATURDAY_MORNING)
-    await dayHeading()
-    await userEvent.click(button('Semana'))
+    await renderDayView()
+    await userEvent.click(segment('Vista', 'Semana'))
     await weekDays()
 
     await userEvent.click(button(/Martes 20 de octubre/))
@@ -33,17 +31,16 @@ describe('Agenda week view', () => {
   })
 
   it('marks the view being shown and goes back to the day', async () => {
-    renderAgenda(SATURDAY_MORNING)
-    await dayHeading()
+    await renderDayView()
 
-    expect(button('Día')).toHaveAttribute('aria-pressed', 'true')
-    expect(button('Semana')).toHaveAttribute('aria-pressed', 'false')
+    expect(segment('Vista', 'Día')).toHaveAttribute('aria-pressed', 'true')
+    expect(segment('Vista', 'Semana')).toHaveAttribute('aria-pressed', 'false')
 
-    await userEvent.click(button('Semana'))
+    await userEvent.click(segment('Vista', 'Semana'))
     await weekDays()
-    expect(button('Semana')).toHaveAttribute('aria-pressed', 'true')
+    expect(segment('Vista', 'Semana')).toHaveAttribute('aria-pressed', 'true')
 
-    await userEvent.click(button('Día'))
+    await userEvent.click(segment('Vista', 'Día'))
     expect(await dayHeading()).toHaveTextContent('Hoy, sábado 24 de octubre')
   })
 })

@@ -59,7 +59,7 @@ function ChosenOrder({ order, today, onMove, onClose }: ChosenOrderProps) {
     <>
       {/* Visible only when the detail is its own screen; focusing it there scrolls the screen to its top. */}
       <Button icon="chevron_left" onClick={onClose} autoFocus className="self-start @3xl:hidden">
-        Volver a pedidos
+        Volver a la agenda
       </Button>
       <div className="flex flex-col gap-5 rounded-[22px] bg-surface-container-lowest p-6 shadow-card">
         <OrderHeader order={order} />

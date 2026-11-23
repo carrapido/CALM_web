@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import type { CalendarDate } from '../../shared/domain/calendar-date'
-import { SATURDAY_MORNING, button, dayHeading, daySlots, renderAgenda } from './agenda-test-kit'
+import { button, dayHeading, daySlots, renderDayView } from './calendar-test-kit'
 
 const WEEKDAY_NAMES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 const CLOSES_BEFORE_OPENING = 'La hora de cierre debe ser después de la apertura.'
@@ -123,15 +123,15 @@ describe('Días que no abres', () => {
   })
 
   it('says when no day is blocked', async () => {
-    await openMySchedule()
+    await openMySchedule({ blockedDates: [] })
 
     expect(await screen.findByText('No tienes días bloqueados.')).toBeInTheDocument()
   })
 })
 
+// From the day view, so saving comes back to the day as the old agenda screen did.
 async function openMySchedule(options?: { blockedDates: CalendarDate[] }) {
-  renderAgenda(SATURDAY_MORNING, options)
-  await dayHeading()
+  await renderDayView(options)
   await userEvent.click(button('Mi horario'))
   await screen.findByRole('heading', { level: 2, name: 'Mi horario' })
 }

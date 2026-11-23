@@ -1,31 +1,22 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import {
-  SATURDAY_MORNING,
-  button,
-  dayHeading,
-  daySlots,
-  renderAgenda,
-  slotGroup,
-} from './agenda-test-kit'
+import { button, dayHeading, daySlots, renderDayView, slotGroup } from './calendar-test-kit'
 
 describe('Agenda day view', () => {
   it("opens on today's date", async () => {
-    renderAgenda(SATURDAY_MORNING)
-
-    expect(await dayHeading()).toHaveTextContent('Hoy, sábado 24 de octubre')
+    expect(await renderDayView()).toHaveTextContent('Hoy, sábado 24 de octubre')
   })
 
   it('takes today from the Cancún calendar, not from UTC', async () => {
     // Already Sunday in UTC, still Saturday 22:00 in Cancún.
-    renderAgenda(new Date('2026-10-25T03:00:00Z'))
-
-    expect(await dayHeading()).toHaveTextContent('Hoy, sábado 24 de octubre')
+    expect(await renderDayView({ now: new Date('2026-10-25T03:00:00Z') })).toHaveTextContent(
+      'Hoy, sábado 24 de octubre',
+    )
   })
 
   it('lists every 30-minute slot of the business hours, booked or free', async () => {
-    renderAgenda(SATURDAY_MORNING)
+    await renderDayView()
 
     const slots = within(await daySlots()).getAllByRole('listitem')
 
@@ -36,7 +27,7 @@ describe('Agenda day view', () => {
   })
 
   it('shows the time, client, ticket and preliminary quote of a booked slot', async () => {
-    renderAgenda(SATURDAY_MORNING)
+    await renderDayView()
 
     const bookedSlot = within(await daySlots()).getAllByRole('listitem')[1]
 
@@ -49,8 +40,7 @@ describe('Agenda day view', () => {
   })
 
   it('moves to the next and previous day', async () => {
-    renderAgenda(SATURDAY_MORNING)
-    await dayHeading()
+    await renderDayView()
 
     await userEvent.click(button('Día anterior'))
     expect(await dayHeading()).toHaveTextContent('Viernes 23 de octubre')
@@ -63,8 +53,7 @@ describe('Agenda day view', () => {
   })
 
   it('keeps "Hoy" off on today and uses it to come back from other days', async () => {
-    renderAgenda(SATURDAY_MORNING)
-    await dayHeading()
+    await renderDayView()
 
     expect(button('Hoy')).toBeDisabled()
 
@@ -76,8 +65,7 @@ describe('Agenda day view', () => {
   })
 
   it('says a closed weekday is closed and lists no slots', async () => {
-    renderAgenda(SATURDAY_MORNING)
-    await dayHeading()
+    await renderDayView()
 
     await userEvent.click(button('Día siguiente'))
 
@@ -89,7 +77,7 @@ describe('Agenda day view', () => {
 describe('Agenda slots grouped by now', () => {
   it('splits today into the slots that already started and the ones still to come', async () => {
     // Saturday 11:15 in Cancún.
-    renderAgenda(new Date('2026-10-24T16:15:00Z'))
+    await renderDayView({ now: new Date('2026-10-24T16:15:00Z') })
 
     const before = within(await slotGroup('Antes de ahora')).getAllByRole('listitem')
     const later = within(await slotGroup('Más tarde')).getAllByRole('listitem')
@@ -104,8 +92,7 @@ describe('Agenda slots grouped by now', () => {
   })
 
   it('puts every slot of a past day before now, with no line for now', async () => {
-    renderAgenda(SATURDAY_MORNING)
-    await dayHeading()
+    await renderDayView()
 
     await userEvent.click(button('Día anterior'))
 
