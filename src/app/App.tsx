@@ -2,6 +2,8 @@ import type { AgendaRepository } from '../agenda/application/agenda-repository'
 import { AgendaPage } from '../agenda/ui/AgendaPage'
 import type { CatalogRepository } from '../catalog/application/catalog-repository'
 import { CatalogPage } from '../catalog/ui/CatalogPage'
+import type { ClientsRepository } from '../clients/application/clients-repository'
+import { ClientsPage } from '../clients/ui/ClientsPage'
 import type { OrdersRepository } from '../orders/application/orders-repository'
 import { OrdersPage } from '../orders/ui/OrdersPage'
 import { AdminShell } from './layout/AdminShell'
@@ -11,6 +13,7 @@ export type AppProps = {
   agendaRepository: AgendaRepository
   ordersRepository: OrdersRepository
   catalogRepository: CatalogRepository
+  clientsRepository: ClientsRepository
   now: () => Date
   random: () => number
   onSignOut: () => void
@@ -33,6 +36,7 @@ function PageContent({
   agendaRepository,
   ordersRepository,
   catalogRepository,
+  clientsRepository,
   now,
   random,
 }: PageContentProps) {
@@ -50,6 +54,8 @@ function PageContent({
       )
     case 'catalogo':
       return <CatalogPage repository={catalogRepository} />
+    case 'clientes':
+      return <ClientsPage repository={clientsRepository} />
     default:
       return null
   }

@@ -6,6 +6,7 @@ import { AccessGate } from './access/ui/AccessGate'
 import { SupabaseAgendaRepository } from './agenda/infrastructure/supabase-agenda-repository'
 import { App } from './app/App'
 import { SupabaseCatalogRepository } from './catalog/infrastructure/supabase-catalog-repository'
+import { SupabaseClientsRepository } from './clients/infrastructure/supabase-clients-repository'
 import { SupabaseOrdersRepository } from './orders/infrastructure/supabase-orders-repository'
 import type { Database } from './shared/infrastructure/database.types'
 import './index.css'
@@ -23,6 +24,7 @@ const adminAccess = new SupabaseAdminAccess(supabase)
 const agendaRepository = new SupabaseAgendaRepository(supabase)
 const ordersRepository = new SupabaseOrdersRepository(supabase)
 const catalogRepository = new SupabaseCatalogRepository(supabase)
+const clientsRepository = new SupabaseClientsRepository(supabase)
 
 const now = () => new Date()
 
@@ -35,6 +37,7 @@ createRoot(rootElement).render(
           agendaRepository={agendaRepository}
           ordersRepository={ordersRepository}
           catalogRepository={catalogRepository}
+          clientsRepository={clientsRepository}
           now={now}
           random={Math.random}
           onSignOut={signOut}
