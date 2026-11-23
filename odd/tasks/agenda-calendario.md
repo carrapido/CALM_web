@@ -1,0 +1,53 @@
+---
+status: done
+---
+
+# Agenda calendario: citas y pedidos unificados
+
+Unify the agenda and orders screens into one "Agenda" section with a month calendar that shows appointments and orders per day by color, filters on top, and the existing detail and actions on click. Apple design style, as in the current app.
+
+## Specs
+
+- **S1** Calendar format, as in the example (`~/Descargas/ejemplo-calen.jpeg`, a Monday-first month grid with colored chips per day): "ahora sera en formato calendario (ejemplo del calendario en ~/Descargas/ejemplo-calen.jpeg) el cual tendra por dias las citas y pedidos diferenciadas por color".
+- **S2** Filters on top: "en la parte de superior del calendario tendra selectores para filtrar por lo que necesite ya sea visualizar citas por recibir o pedidos". User choice: "Todo · Citas · Pedidos (recomendado)" — "Un selector simple. Con Pedidos, un segundo selector: En el taller / Terminados (lo que hoy filtra la pantalla de pedidos)."
+- **S3** No functionality lost: "Esto no debe de afectar las funciones que se tienen en ambas pantallas, solo integralas en la unificación de ambas."
+- **S4** Style: "Sigue el mismo estilo de diseño apple design"; correction: "Estas desvinadote mucho de los diseños originales, estas cambiando mucho, mira los diseños actuales de todas las pantallas" and "solo no pongas emojis".
+- **S5** Detail on click: "Al dar clic sobre las etiquetas deberia de dar mas detalles como se tiene actualmente".
+- **S6** Navigation, user choice: "Una sola sección \"Agenda\" (recomendado)" — "Agenda y Pedidos pasan a ser una sección con el calendario. Quedan 3 secciones: Agenda, Catálogo, Clientes."
+- **S7** Views, user choice: "Mes + Semana + Día (recomendado)" — "Selector Mes/Semana/Día; Mes por defecto. Tocar un día del mes abre la vista Día actual con todas sus acciones."
+- **S8** Design first, user choice: "Maqueta HTML primero (recomendado)" — "Te armo 2 direcciones visuales en design/ estilo Apple, elegís una y después implemento."
+
+- **S10** "deja en el repo las nuevas pruebas, puedes quitar las de lan pantallas anteriores": route-level tests through the unified page for every action (verifier probes P2b-P9); the old AgendaPage/OrdersPage screens and their page tests go, with each still-relevant case kept by moving it onto the unified page.
+- **S11** "cambio los textos viejos": no "Volver a pedidos" / "Ver pedidos" left; the unified page says "Volver a la agenda".
+- **S12** "Divide la rama a la practica recomendada": split into chained branches of about 400 changed lines each (chained-pr skill), each one building and passing tests on its own.
+
+## Tasks
+
+- [x] T1 (S1, S2, S4, S5, S8) Design: two Apple-style HTML directions in `design/agenda-calendario/`; user picks one. Route: inline (gentle-design). Commit: — (design only)
+- [x] T2 (S1, S3) Domain: month grid helpers (month dates Monday-first, month label) and a calendar-entries model merging appointments (by `date`) and orders (by `deliveryDate`). Route: inline, test-first. Commit: 9dec3cc
+- [x] T3 (S1, S2, S4, S5, S7) UI: month view with colored chips, Todo/Citas/Pedidos filter (+ En el taller/Terminados), chip opens existing AppointmentDetail / OrderDetail, day opens day view; Mes/Semana/Día selector. Route: per Writer rule at the time. Commit: ae7ba46, 183ecfb
+- [x] T4 (S3, S6) Unify navigation: one "Agenda" section hosting both repositories; "Nuevo pedido", ticket search, "Mi horario" and every existing action reachable; update App/sign-in tests. Route: inline. Commit: ae7ba46
+- [x] T5 (S3) Verify: full suite, build, lint; every pre-existing agenda/orders action still covered. Route: inline. Commit: — (verification only)
+
+- [x] T6 (S10, S11) Migrate old-screen tests onto the unified page, add route-level action tests, remove AgendaPage/OrdersPage dead code, change old texts. Route: worker. Commit: b983450
+- [ ] T7 (S12) Split feat/agenda-calendario into stacked branches of about 400 lines; verify each. Route: inline (git). Commit: —
+
+## Log
+
+- **L1** User request: "Proximo objetivo refactorizar las pantallas de agenda y la de pedidos de CALM_web, ahora sera en formato calendario (ejemplo del calendario en ~/Descargas/ejemplo-calen.jpeg) el cual tendra por dias las citas y pedidos diferenciadas por color, en la parte de superior del calendario tendra selectores para filtrar por lo que necesite ya sea visualizar citas por recibir o pedidos.\nEsto no debe de afectar las funciones que se tienen en ambas pantallas, solo integralas en la unificación de ambas. Sigue el mismo estilo de diseño apple design"
+- **L2** User: "Al dar clic sobre las etiquetas deberia de dar mas detalles como se tiene actualmente"
+- **L3** User answers: navigation "Una sola sección \"Agenda\" (recomendado)"; views "Mes + Semana + Día (recomendado)"; filters "Todo · Citas · Pedidos (recomendado)"; design "Maqueta HTML primero (recomendado)".
+- **L4** Exploration evidence: orders have only `deliveryDate` as a calendar date (src/orders/domain/order.ts:12); appointments have `date` + `time`, no status, cancel deletes (src/agenda/domain/appointment.ts:3). No multi-day span exists in either domain, so no multi-day bars. No month grid exists; reuse `weekDates`, `addDays`, `calendar-date.ts`. Sections in src/app/navigation.ts:3; App.test.tsx:54 and access/ui/sign-in.test.tsx:50 pin four sections.
+- **L5** Design: synced design/system.md + design/system.html from src/index.css; wrote design/agenda-calendario/ with artboards 01-mes-con-detalle.html (month grid with chips + side detail) and 02-mes-compacto-y-dia.html (compact month with dots + day list + detail). Proposed new token for appointments: --appt #e7efff / --onappt #0a3f9c. Waiting for the user's pick.
+- **L6** User: "Estas desvinadote mucho de los diseños originales, estas cambiando mucho, mira los diseños actuales de todas las pantallas, aun asi me gusta mas el primer formato, solo no pongas emojis. Igual entregamelo en html antes de efectuar cambios". Decision: direction 01 (month grid with chips + side detail), rebuilt from the current screens' real markup and classes; no emojis; HTML delivered before any source change.
+- **L7** Design 01 rebuilt from current components (AdminShell, PageFrame, SegmentedControl, TicketSearch, DayChanger, AppointmentDetail, OrderDetail, StatusChip); no emojis, inline SVG Material icons. Checked by headless screenshot. Open question: chips truncate names at PageFrame 1080px with a 360px detail panel.
+- **L8** Handoff: user chose artboard design/agenda-calendario/01-mes-con-detalle.html via the canvas "implement" action (title "Mes con etiquetas y detalle al lado (pantallas actuales)"); 02-mes-compacto-y-dia.html is an alternative, not implemented. Width: keep PageFrame 1080px with truncated chips, as in the artboard's tradeoff. Spec source for T2-T4: the artboard + design/system.md.
+- **L9** User: "Corre un prueba de las funciones para checar que todo este en orden antes de hacer el push". Folded into T5: full suite, typecheck, lint, build and a check that every pre-existing agenda/orders action still works, before any push.
+- **L10** T2 committed in 9dec3cc (domain + tests, 178/178 tests, tsc and oxlint clean). Slice note: 1473 authored lines since origin/main, mostly the design artboards (design/ HTML); the source slice is small. T3 and T4 go together to one worker because the unified page and the navigation change depend on each other.
+- **L11** T3+T4 in ae7ba46: AgendaCalendarPage (src/calendar/ui), reuses AppointmentDetail/OrderDetail/Week/Day containers; PeriodChanger extracted from DayView; order-listing.ts + FinishedNotice extracted from OrdersView; nav 3 sections; #/pedidos removed. 193/193 tests, tsc, oxlint, build OK. Deviations: search shows a result list; reused components keep "Volver a pedidos"/"Ver pedidos" wording; Qué ver only in Mes; OrdersPage kept (unrouted) for its Citas pendientes view. Risk: item 3 (shared DayView/OrdersView code refactored).
+- **L12** T5 verify (independent): 193/193, tsc, oxlint, build pass; blocker S3: "Citas pendientes" (appointments awaiting an order, recent and future, soonest first) is no longer reachable from the routed page, and the Citas filter still labels appointments that already have an order as "Cita por recibir" (S2). Decision: Citas = citas por recibir = appointments without an order (existing ticket+date+time match); when Citas is chosen, the side panel (nothing chosen) shows the existing "Citas pendientes" list (AppointmentRows). T3 reopened for this fix.
+- **L13** Fix in 183ecfb: hasOrder exported and reused; appointments with an order hidden from the month; Citas side panel lists Citas pendientes (AppointmentRows, read only). 195/195 tests, tsc, oxlint, build OK. Re-verification of S2/S3 launched.
+- **L14** T5 re-verification (independent, HEAD 183ecfb): 195/195 tests, tsc, oxlint, build pass; verifier probes 10/10 (P1, P2, P2b, P3-P9); verdict S1, S2, S3, S5, S6, S7 met, S4 visual not judged; no blocker. Correction to L12: only the P1/P2 cases were committed as tests (183ecfb); the P2b-P9 probes ran in the verifier scratch copy only and were not kept. Advisories: reused components still say "Volver a pedidos"/"Ver pedidos"; build warns about a 517 kB chunk; app not checked visually (Supabase sign-in).
+- **L15** User: "Ya rebice las pantallas estan bien, deja en el repo las nuevas pruebas, puedes quitar las de lan pantallas anteriores, cambio los textos viejos. Divide la rama a la practica recomendada". Decision: old page tests are migrated onto the unified page rather than dropped, so the reused components (DayView, AppointmentDetail, OrderDetail, NewOrderSheet, MyScheduleForm, BlockDayControl, WeekView) stay covered; chain strategy: stacked PRs to main (each slice lands on its own), branches local only, push and PRs stay with the user.
+- **L16** T6 in b983450: 76 old page tests ported to src/calendar/ui/*.test.tsx (none dropped, a few renamed where the list UI became chips), 8 route-level action tests, AgendaPage/OrdersPage/OrdersContainer/OrdersView and old kits removed, "Volver a la agenda" wording. 203/203 tests, tsc, oxlint, build OK.
+- **L17** T7 plan (one slicing pass, stacked PRs to main): 1 design+doc, 2 calendar domain (src at 9dec3cc), 3 shared extractions (PeriodChanger/DayView, order-listing/FinishedNotice/OrdersView/OrdersContainer from ae7ba46), 4 unified page + nav + citas pendientes fix (src at 183ecfb), 5 test migration + old screens removed + wording (src at b983450). Slices 1, 4 and 5 exceed 400 lines (mockup HTML; new page with its tests; moved tests) and are reported as size:exception. Original feat/agenda-calendario kept as the reference; the last slice must match it exactly.

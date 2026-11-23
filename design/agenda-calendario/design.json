@@ -1,0 +1,21 @@
+{
+  "title": "Agenda calendario",
+  "brief": "Unificar agenda y pedidos en un calendario mensual: citas y entregas de pedidos por día diferenciadas por color, filtros Todo/Citas/Pedidos arriba, clic abre el detalle actual. Estilo Apple.",
+  "feature": "odd/tasks/agenda-calendario.md",
+  "artboards": [
+    {
+      "file": "01-mes-con-detalle.html",
+      "title": "Mes con etiquetas y detalle al lado (pantallas actuales)",
+      "tradeoff": "Misma barra lateral, botones, selectores, buscador y detalle de cita/pedido que la app actual; solo el calendario es nuevo. Dentro del ancho actual de página (1080px) con el detalle al lado, cada día mide unos 90px: la etiqueta muestra hora o ticket y el nombre se corta (completo al pasar el cursor y en el detalle); con más de 3 por día aparece 'N más'",
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "file": "02-mes-compacto-y-dia.html",
+      "title": "Mes compacto con puntos y lista del día",
+      "tradeoff": "Estilo Calendario de iPhone: limpio y escala a días cargados, con acciones del día (bloquear, horarios) a mano; pide un clic más para ver qué hay en cada día",
+      "width": 1440,
+      "height": 900
+    }
+  ]
+}

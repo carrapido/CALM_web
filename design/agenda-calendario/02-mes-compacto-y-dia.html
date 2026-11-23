@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agenda · Mes compacto y lista del día</title>
+<style>
+:root{
+  --bg:#f2f4f7;--card:#fff;--ink:#0f172a;--ink2:#45464d;--outline:#767b85;
+  --fill:rgb(15 23 42/.06);--fill2:rgb(15 23 42/.08);--sep:rgb(15 23 42/.08);--focus:#0b57d0;--now:#d70015;
+  --warm:#fff4d6;--onwarm:#6b4a00;--ok:#e3f5e9;--onok:#0b5b2a;--err:#c4001a;--low:#f7f8fa;
+  /* Proposed: appointment tint, same family as the focus blue, AA ink. */
+  --appt:#e7efff;--onappt:#0a3f9c;
+  --shadow:0 1px 2px rgb(15 23 42/.05),0 8px 24px rgb(15 23 42/.06);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:17px;line-height:24px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+button:not(:disabled):active{scale:.98}
+@media (prefers-reduced-motion:reduce){button:active{scale:none}}
+.shell{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+nav{padding:28px 16px;border-right:1px solid var(--sep)}
+.brand{font-weight:800;font-size:20px;padding:0 12px 24px}
+nav a{display:flex;align-items:center;min-height:48px;padding:0 12px;border-radius:14px;color:var(--ink2);text-decoration:none;font-weight:600}
+nav a[aria-current=page]{background:var(--card);color:var(--ink);font-weight:800;box-shadow:var(--shadow)}
+main{padding:32px;max-width:1180px;width:100%;margin:0 auto}
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+h1{font-size:40px;line-height:42px;letter-spacing:-.025em;font-weight:800;margin:0}
+.btn{min-height:56px;border-radius:14px;padding:0 18px;border:0;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn.p{background:var(--ink);color:#fff}.btn.s{background:var(--fill)}.btn.d{background:#fff;color:var(--err);box-shadow:inset 0 0 0 1px var(--sep)}
+.actions{display:flex;gap:12px}
+.toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:24px 0 20px}
+.seg{display:inline-flex;background:var(--fill);border-radius:13px;padding:3px}
+.seg button{min-height:48px;min-width:96px;border-radius:10px;border:0;background:transparent;font-size:15px;font-weight:600;color:var(--ink2);padding:0 16px}
+.seg button[aria-pressed=true]{background:#fff;color:var(--ink);font-weight:800;box-shadow:0 1px 3px rgb(15 23 42/.14)}
+.spacer{flex:1}
+.search{display:flex;align-items:center;gap:8px;background:#fff;border:2px solid var(--outline);border-radius:14px;min-height:48px;padding:0 12px}
+.search input{border:0;font:inherit;font-size:15px;width:170px;outline:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.split{display:grid;grid-template-columns:minmax(0,560px) 1fr;gap:20px;align-items:start}
+.card{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:20px}
+.monthbar{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.monthbar h2{font-size:24px;line-height:30px;font-weight:800;margin:0 auto 0 0;letter-spacing:-.015em}
+.icon{min-width:48px;min-height:48px;border-radius:12px;border:0;background:var(--fill);font-size:20px;font-weight:700}
+.dow,.weeks{display:grid;grid-template-columns:repeat(7,1fr);text-align:center}
+.dow div{font-size:12px;letter-spacing:.08em;font-weight:800;color:var(--ink2);padding:6px 0}
+.day{min-height:64px;border:0;background:transparent;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0}
+.day:hover{background:var(--fill)}
+.day .n{width:34px;height:34px;border-radius:999px;display:grid;place-items:center;font-weight:700}
+.day.out{color:var(--outline)}
+.day.today .n{color:var(--now)}
+.day[aria-pressed=true] .n{background:var(--ink);color:#fff}
+.day.today[aria-pressed=true] .n{background:var(--now)}
+.day.blocked .n{text-decoration:line-through;color:var(--outline)}
+.dots{display:flex;gap:3px;height:8px}
+.dots i{width:7px;height:7px;border-radius:50%}
+.a{background:var(--onappt)}.o{background:#c08a00}.r{background:#1f9d55}
+.legend{display:flex;gap:16px;font-size:14px;color:var(--ink2);margin-top:14px;flex-wrap:wrap;border-top:1px solid var(--sep);padding-top:12px}
+.legend span{display:inline-flex;align-items:center;gap:6px}.legend i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.dayhead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px}
+.dayhead h2{font-size:24px;line-height:30px;font-weight:800;margin:0;letter-spacing:-.015em}
+.sub{font-size:15px;color:var(--ink2);margin:0 0 16px}
+h3.group{font-size:12px;letter-spacing:.08em;font-weight:800;text-transform:uppercase;color:var(--ink2);margin:16px 0 6px}
+.row{display:grid;grid-template-columns:64px 1fr auto;gap:12px;align-items:center;width:100%;min-height:64px;border:0;background:transparent;text-align:left;border-radius:14px;padding:8px 12px;border-left:4px solid transparent}
+.row:hover{background:var(--fill)}
+.row.appt{border-left-color:var(--onappt)}.row.order{border-left-color:#c08a00}.row.ready{border-left-color:#1f9d55}
+.row .t{font-weight:800;font-size:15px}.row .who{font-weight:700}.row .w{font-size:15px;color:var(--ink2)}
+.pill{border-radius:8px;padding:4px 10px;font-size:13px;font-weight:700;white-space:nowrap}
+.pill.appt{background:var(--appt);color:var(--onappt)}.pill.order{background:var(--warm);color:var(--onwarm)}.pill.ready{background:var(--ok);color:var(--onok)}
+.empty{color:var(--ink2);text-align:center;padding:32px 0}
+.back{min-height:48px;border:0;background:transparent;font-weight:700;color:var(--focus);padding:0;margin-bottom:8px}
+dl{margin:12px 0 16px;display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:15px}dt{color:var(--ink2)}dd{margin:0;font-weight:600}
+.stack{display:grid;gap:10px}
+.dayactions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;border-top:1px solid var(--sep);padding-top:16px}
+@media (max-width:1000px){.split{grid-template-columns:1fr}}
+@media (max-width:760px){.shell{grid-template-columns:1fr}nav{display:none}main{padding:16px}h1{font-size:34px;line-height:38px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<nav aria-label="Secciones">
+  <div class="brand">CALM</div>
+  <a href="#" aria-current="page">Agenda</a>
+  <a href="#">Catálogo</a>
+  <a href="#">Clientes</a>
+</nav>
+<main>
+  <div class="head">
+    <h1>Agenda</h1>
+    <div class="actions">
+      <button class="btn s" type="button">Mi horario</button>
+      <button class="btn p" type="button">＋ Nuevo pedido</button>
+    </div>
+  </div>
+  <div class="toolbar">
+    <div class="seg" role="group" aria-label="Vista">
+      <button type="button" aria-pressed="true">Mes</button>
+      <button type="button" aria-pressed="false">Semana</button>
+      <button type="button" aria-pressed="false">Día</button>
+    </div>
+    <div class="seg" role="group" aria-label="Qué ver" id="what">
+      <button type="button" data-v="all" aria-pressed="true">Todo</button>
+      <button type="button" data-v="appt" aria-pressed="false">Citas</button>
+      <button type="button" data-v="order" aria-pressed="false">Pedidos</button>
+    </div>
+    <div class="seg" role="group" aria-label="Qué pedidos ver" id="orders" hidden>
+      <button type="button" data-v="workshop" aria-pressed="true">En el taller</button>
+      <button type="button" data-v="finished" aria-pressed="false">Terminados</button>
+    </div>
+    <span class="spacer"></span>
+    <form class="search" role="search" onsubmit="return false">
+      <label for="q" class="sr">Buscar por ticket</label>
+      <span aria-hidden="true">🔍</span><input id="q" inputmode="numeric" placeholder="Ticket de 4 números">
+    </form>
+  </div>
+
+  <div class="split">
+    <section class="card" aria-label="Octubre 2026">
+      <div class="monthbar">
+        <h2>Octubre 2026</h2>
+        <button class="icon" type="button" aria-label="Mes anterior">‹</button>
+        <button class="icon" type="button" aria-label="Mes siguiente">›</button>
+        <button class="btn s" type="button" style="min-height:48px" id="today">Hoy</button>
+      </div>
+      <div class="dow" aria-hidden="true"><div>LUN</div><div>MAR</div><div>MIÉ</div><div>JUE</div><div>VIE</div><div>SÁB</div><div>DOM</div></div>
+      <div class="weeks" id="grid"></div>
+      <div class="legend" aria-label="Colores">
+        <span><i class="a"></i>Cita por recibir</span><span><i class="o"></i>Entrega de pedido</span><span><i class="r"></i>Listo para recoger</span>
+      </div>
+    </section>
+    <section class="card" id="side" aria-live="polite"></section>
+  </div>
+</main>
+</div>
+<script>
+const TODAY=24, BLOCKED=[12];
+const items=[
+  {id:'a1',kind:'appt',day:5,time:'10:00',name:'Lucía Gómez',ticket:'4512',what:'Ajuste de cintura',total:'$180'},
+  {id:'o1',kind:'order',day:6,status:'Entregado',name:'Juan Pérez',ticket:'3390',what:'Parche',total:'$90',done:true},
+  {id:'a2',kind:'appt',day:14,time:'11:30',name:'Elena Díaz',ticket:'4602',what:'Dobladillo de falda',total:'$150'},
+  {id:'o2',kind:'order',day:16,status:'Cancelado',name:'María López',ticket:'2210',what:'Cambio de cierre de chamarra',total:'$220',done:true},
+  {id:'a3',kind:'appt',day:24,time:'10:30',name:'Ana Martínez',ticket:'4821',what:'Ajuste de vestido de fiesta',total:'$450'},
+  {id:'a4',kind:'appt',day:24,time:'12:00',name:'Juan Pérez',ticket:'4830',what:'Bastilla de pantalón',total:'$120'},
+  {id:'o3',kind:'order',day:24,status:'Listo para recoger',name:'Carlos Ruiz',ticket:'7720',what:'Ajuste de saco',total:'$350',step:3},
+  {id:'a5',kind:'appt',day:24,time:'16:30',name:'Elena Díaz',ticket:'4841',what:'Dobladillo de falda',total:'$150'},
+  {id:'o4',kind:'order',day:26,status:'En proceso',name:'María López',ticket:'6105',what:'Ajuste de vestido de novia',total:'$1,800',step:2},
+  {id:'a6',kind:'appt',day:27,time:'09:30',name:'Lucía Gómez',ticket:'4855',what:'Ajuste de cintura',total:'$180'},
+  {id:'o5',kind:'order',day:28,status:'Recibido',name:'Juan Pérez',ticket:'7741',what:'Bastilla de pantalón',total:'$120',step:1},
+  {id:'o6',kind:'order',day:28,status:'Cliente en camino',name:'Ana Martínez',ticket:'7702',what:'Cambio de cierre de chamarra',total:'$220',step:3},
+  {id:'a7',kind:'appt',day:30,time:'13:00',name:'Carlos Ruiz',ticket:'4870',what:'Ajuste de saco',total:'$350'},
+];
+let what='all', orders='workshop', day=TODAY, chosen=null;
+const grid=document.getElementById('grid'), side=document.getElementById('side');
+const DOW=['jueves','viernes','sábado','domingo','lunes','martes','miércoles'];
+const dayName=d=>`${DOW[(d-1)%7]} ${d} de octubre`;
+function visible(i){
+  if(what==='appt') return i.kind==='appt';
+  if(what==='order') return i.kind==='order'&&(orders==='finished'?!!i.done:!i.done);
+  return i.kind==='appt'||!i.done;
+}
+const cls=i=>i.kind==='appt'?'appt':(i.status==='Listo para recoger'||i.status==='Cliente en camino')?'ready':'order';
+function renderGrid(){
+  grid.innerHTML='';
+  const cells=[28,29,30].map(n=>({n,out:true})).concat(Array.from({length:31},(_,k)=>({n:k+1}))).concat([{n:1,out:true}]);
+  cells.forEach(c=>{
+    const b=document.createElement('button');b.type='button';
+    b.className='day'+(c.out?' out':'')+(!c.out&&c.n===TODAY?' today':'')+(!c.out&&BLOCKED.includes(c.n)?' blocked':'');
+    const list=c.out?[]:items.filter(i=>i.day===c.n&&visible(i));
+    b.setAttribute('aria-pressed',String(!c.out&&c.n===day));
+    b.setAttribute('aria-label',c.out?`${c.n}`:`${dayName(c.n)}, ${list.length?list.length+' en agenda':'sin nada'}${BLOCKED.includes(c.n)?', bloqueado':''}`);
+    b.innerHTML=`<span class="n">${c.n}</span><span class="dots">${[...new Set(list.map(cls))].map(k=>`<i class="${k==='appt'?'a':k==='ready'?'r':'o'}"></i>`).join('')}</span>`;
+    if(!c.out) b.onclick=()=>{day=c.n;chosen=null;render();};
+    grid.append(b);
+  });
+}
+function renderSide(){
+  const i=items.find(x=>x.id===chosen);
+  if(i){
+    const ready=cls(i)==='ready';
+    side.innerHTML=`<button class="back" type="button" id="back">‹ Volver al ${dayName(day)}</button>
+      <div class="pill ${cls(i)}" style="display:inline-block">${i.kind==='appt'?'Cita por recibir':i.status}</div>
+      <h2 style="font-size:24px;line-height:30px;font-weight:800;margin:10px 0 0">${i.name}</h2>
+      <dl><dt>Ticket</dt><dd>${i.ticket}</dd><dt>${i.kind==='appt'?'Hora':'Entrega'}</dt><dd>${i.kind==='appt'?i.time:dayName(i.day)}</dd>
+      <dt>${i.kind==='appt'?'Servicio':'Trabajo'}</dt><dd>${i.what}</dd><dt>Total</dt><dd>${i.total}</dd></dl>
+      <div class="stack">${i.kind==='appt'
+        ?'<button class="btn s" type="button">Recordar por WhatsApp</button><button class="btn d" type="button">Cancelar cita</button>'
+        :i.done?'<p class="sub">Pedido terminado: solo lectura.</p>'
+        :`${ready?'<button class="btn s" type="button">Avisar por WhatsApp</button>':''}<button class="btn p" type="button">${i.step===3?'Marcar entregado':'Avanzar'}</button><button class="btn d" type="button">Cancelar pedido</button>`}</div>`;
+    document.getElementById('back').onclick=()=>{chosen=null;render();};
+    return;
+  }
+  const list=items.filter(x=>x.day===day&&visible(x)).sort((a,b)=>(a.time||'99')<(b.time||'99')?-1:1);
+  const appts=list.filter(x=>x.kind==='appt'), ords=list.filter(x=>x.kind==='order');
+  const row=x=>`<button type="button" class="row ${cls(x)}" data-id="${x.id}">
+      <span class="t">${x.kind==='appt'?x.time:'Entrega'}</span>
+      <span><span class="who">${x.name}</span><br><span class="w">${x.what} · Ticket ${x.ticket}</span></span>
+      <span class="pill ${cls(x)}">${x.kind==='appt'?'Cita':x.status}</span></button>`;
+  side.innerHTML=`<div class="dayhead"><h2>${day===TODAY?'Hoy, ':''}${dayName(day)}</h2></div>
+    <p class="sub">${BLOCKED.includes(day)?'Día bloqueado':(day-1)%7===3?'Cerrado':'Abierto de 9:00 a 18:00'}</p>
+    ${!list.length?'<p class="empty">Nada en agenda este día.</p>':''}
+    ${appts.length?`<h3 class="group">Citas por recibir</h3>${appts.map(row).join('')}`:''}
+    ${ords.length?`<h3 class="group">Entregas de pedidos</h3>${ords.map(row).join('')}`:''}
+    <div class="dayactions"><button class="btn s" type="button">Ver horarios del día</button>
+    <button class="btn d" type="button">${BLOCKED.includes(day)?'Desbloquear día':'Bloquear este día'}</button></div>`;
+  side.querySelectorAll('.row').forEach(b=>b.onclick=()=>{chosen=b.dataset.id;render();});
+}
+function render(){renderGrid();renderSide();document.getElementById('today').disabled=day===TODAY;}
+function wireSeg(id,set){document.querySelectorAll(`#${id} button`).forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(`#${id} button`).forEach(x=>x.setAttribute('aria-pressed','false'));
+  b.setAttribute('aria-pressed','true');set(b.dataset.v);chosen=null;render();});}
+wireSeg('what',v=>{what=v;document.getElementById('orders').hidden=v!=='order';});
+wireSeg('orders',v=>{orders=v;});
+document.getElementById('today').onclick=()=>{day=TODAY;chosen=null;render();};
+render();
+</script>
+</body>
+</html>

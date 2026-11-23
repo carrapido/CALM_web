@@ -1,0 +1,17 @@
+{
+  "arrangement": "free",
+  "positions": {
+    "system": {
+      "x": 0,
+      "y": 0
+    },
+    "01-mes-con-detalle.html": {
+      "x": 1817,
+      "y": 163
+    },
+    "02-mes-compacto-y-dia.html": {
+      "x": 3552,
+      "y": 175
+    }
+  }
+}
