@@ -1,0 +1,90 @@
+import { screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it } from 'vitest'
+import { CARLOS_READY, ordersInWorkshop, renderOrders } from './orders-test-kit'
+
+async function showPendingAppointments(): Promise<HTMLElement> {
+  await ordersInWorkshop()
+  const filter = screen.getByRole('group', { name: 'Qué pedidos ver' })
+  await userEvent.click(within(filter).getByRole('button', { name: 'Citas pendientes' }))
+  return screen.findByRole('list', { name: 'Citas pendientes' })
+}
+
+function rowsOf(list: HTMLElement): string[] {
+  return within(list)
+    .getAllByRole('listitem')
+    .map((item) => item.textContent ?? '')
+}
+
+describe('Pending appointments', () => {
+  it('splits pending appointments from the orders whose clothes are in the workshop', async () => {
+    renderOrders()
+    await ordersInWorkshop()
+
+    const filter = screen.getByRole('group', { name: 'Qué pedidos ver' })
+    expect(within(filter).getAllByRole('button').map((segment) => segment.textContent)).toEqual([
+      'En el taller',
+      'Citas pendientes',
+      'Terminados',
+    ])
+    const inWorkshop = screen.getByRole('list', { name: 'Pedidos en el taller' })
+    expect(within(inWorkshop).queryByText(/Pedro Canul/)).not.toBeInTheDocument()
+  })
+
+  it('lists future and recent appointments without an order, soonest first', async () => {
+    renderOrders()
+
+    const list = await showPendingAppointments()
+
+    const rows = rowsOf(list)
+    expect(rows).toHaveLength(3)
+    expect(rows[0]).toContain('Ticket 0937 · Juan Pérez')
+    expect(rows[1]).toContain('Ticket 4821 · María López')
+    expect(rows[2]).toContain('Ticket 1357 · Pedro Canul')
+  })
+
+  it('shows the day, time, services and quote of each appointment', async () => {
+    renderOrders()
+
+    const list = await showPendingAppointments()
+
+    const [, today, future] = rowsOf(list)
+    expect(today).toContain('Hoy, 10:30')
+    expect(today).toContain('Dobladillo de pantalón, Cambio de cierre')
+    expect(today).toContain('$250 MXN')
+    expect(future).toContain('Lunes 26 de octubre, 10:00')
+    expect(future).toContain('Ajuste de saco')
+    expect(future).toContain('$300 MXN')
+  })
+
+  it('leaves out an appointment that already became an order', async () => {
+    renderOrders({
+      orders: [
+        CARLOS_READY,
+        {
+          ticket: '1357',
+          clientName: 'Pedro Canul',
+          work: 'Ajuste de saco',
+          finalPriceMxn: 300,
+          deliveryDate: '2026-10-30',
+          status: 'received',
+          appointment: { date: '2026-10-26', time: '10:00' },
+        },
+      ],
+    })
+
+    const list = await showPendingAppointments()
+
+    expect(within(list).queryByText(/Ticket 1357/)).not.toBeInTheDocument()
+  })
+
+  it('says when there are no pending appointments', async () => {
+    renderOrders({ appointments: [] })
+    await ordersInWorkshop()
+
+    const filter = screen.getByRole('group', { name: 'Qué pedidos ver' })
+    await userEvent.click(within(filter).getByRole('button', { name: 'Citas pendientes' }))
+
+    expect(await screen.findByText('No hay citas pendientes.')).toBeInTheDocument()
+  })
+})

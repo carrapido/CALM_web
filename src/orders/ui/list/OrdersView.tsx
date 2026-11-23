@@ -1,13 +1,16 @@
 import { useState } from 'react'
+import type { Appointment } from '../../../agenda/domain/appointment'
 import type { CalendarDate } from '../../../shared/domain/calendar-date'
 import { SegmentedControl } from '../../../shared/ui/molecules/SegmentedControl'
 import { formatCount } from '../../../shared/ui/format'
 import { isActive, orderKey, type Order, type OrderStatus } from '../../domain/order'
 import { OrderDetail, type MoveOrder } from './OrderDetail'
+import { AppointmentRows } from './AppointmentRows'
 import { OrderRows } from './OrderRows'
 import { TicketSearch } from './TicketSearch'
 
-export type OrdersFilter = 'workshop' | 'finished'
+// The workshop holds the clients' clothes; pending appointments have not brought them yet.
+export type OrdersFilter = 'workshop' | 'appointments' | 'finished'
 
 export type OrderListing =
   | { kind: OrdersFilter; orders: Order[] }
@@ -23,6 +26,8 @@ type OrdersViewProps = {
   // Both undefined while loading.
   counts: WorkshopCounts | undefined
   listing: OrderListing | undefined
+  // Undefined while loading, or while another list is shown.
+  appointments: Appointment[] | undefined
   filter: OrdersFilter
   onFilterChange: (filter: OrdersFilter) => void
   onSearch: (ticket: string) => void
@@ -32,6 +37,7 @@ type OrdersViewProps = {
 
 const FILTERS = [
   { value: 'workshop', label: 'En el taller' },
+  { value: 'appointments', label: 'Citas pendientes' },
   { value: 'finished', label: 'Terminados' },
 ] as const
 
@@ -41,6 +47,7 @@ export function OrdersView({
   today,
   counts,
   listing,
+  appointments,
   filter,
   onFilterChange,
   onSearch,
@@ -89,7 +96,13 @@ export function OrdersView({
         </div>
       </div>
       <FinishedNotice notice={notice} />
-      {listing === undefined ? (
+      {listing?.kind === 'appointments' ? (
+        appointments === undefined ? (
+          <p className="text-on-surface-variant">Cargando las citas…</p>
+        ) : (
+          <AppointmentRows appointments={appointments} today={today} />
+        )
+      ) : listing === undefined ? (
         <p className="text-on-surface-variant">Cargando los pedidos…</p>
       ) : (
         <div className="flex flex-col gap-7 @3xl:flex-row @3xl:items-start">
@@ -144,6 +157,7 @@ function FinishedNotice({ notice }: { notice: string | undefined }) {
 
 const LIST_LABELS: Record<OrderListing['kind'], string> = {
   workshop: 'Pedidos en el taller',
+  appointments: 'Citas pendientes',
   finished: 'Pedidos terminados',
   search: 'Resultados de la búsqueda',
 }

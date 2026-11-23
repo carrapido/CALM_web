@@ -1,18 +1,25 @@
 import { useState } from 'react'
+import type { AgendaRepository } from '../../../agenda/application/agenda-repository'
 import type { CalendarDate } from '../../../shared/domain/calendar-date'
 import { useQuery } from '../../../shared/ui/useQuery'
+import { pendingAppointments } from '../../application/appointments-awaiting-order'
 import type { OrdersRepository } from '../../application/orders-repository'
 import { isActive, isReadyForPickup, type Order, type OrderStatus } from '../../domain/order'
 import { OrdersView, type OrderListing, type OrdersFilter, type WorkshopCounts } from './OrdersView'
 
 type OrdersContainerProps = {
   repository: OrdersRepository
+  agendaRepository: AgendaRepository
   today: CalendarDate
 }
 
-export function OrdersContainer({ repository, today }: OrdersContainerProps) {
+export function OrdersContainer({ repository, agendaRepository, today }: OrdersContainerProps) {
   const { data: orders, reload } = useQuery('orders', () => repository.orders())
   const [filter, setFilter] = useState<OrdersFilter>('workshop')
+  // Loaded only when the admin asks for them, so the workshop list costs no agenda read.
+  const { data: appointments } = useQuery(filter === 'appointments' ? 'pending-appointments' : 'none', () =>
+    filter === 'appointments' ? pendingAppointments(agendaRepository, repository, today) : Promise.resolve([]),
+  )
   const [searchedTicket, setSearchedTicket] = useState<string>()
 
   const moveOrder = (order: Order, status: OrderStatus) =>
@@ -29,6 +36,7 @@ export function OrdersContainer({ repository, today }: OrdersContainerProps) {
       counts={orders && workshopCounts(orders)}
       filter={filter}
       listing={orders && listingOf(orders, filter, searchedTicket)}
+      appointments={appointments}
       onFilterChange={changeFilter}
       onSearch={setSearchedTicket}
       onCloseSearch={() => setSearchedTicket(undefined)}
@@ -48,6 +56,7 @@ function listingOf(orders: Order[], filter: OrdersFilter, searchedTicket: string
     return { kind: 'search', ticket: searchedTicket, orders: withTicket(orders, searchedTicket) }
   }
   if (filter === 'finished') return { kind: 'finished', orders: finishedNewestFirst(orders) }
+  if (filter === 'appointments') return { kind: 'appointments', orders: [] }
   return { kind: 'workshop', orders: activeByDeliveryDate(orders) }
 }
 
