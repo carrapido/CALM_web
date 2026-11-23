@@ -2,7 +2,6 @@
 //
 // Her session says who she is; the current NIP is checked here, under the same per-phone throttle
 // as sign-in, before a new one is stored. Spec: CALM_mobile odd/tasks/acciones-cliente.md (S8).
-import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import {
   adminClient,
   answer,
@@ -17,6 +16,7 @@ import {
   PHONE_PATTERN,
   problem,
   serveClientFunction,
+  signedInClient,
   THROTTLED,
 } from '../_shared/client-auth.ts'
 
@@ -77,19 +77,3 @@ serveClientFunction('client-update-profile', async (request) => {
   }
   return answer(200, { client: clientSummary(data as ClientRow) })
 })
-
-/// The client behind the bearer token of [request], or null when there is no valid session.
-async function signedInClient(admin: SupabaseClient, request: Request): Promise<ClientRow | null> {
-  const token = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') ?? ''
-  if (token === '') return null
-  const { data, error } = await admin.auth.getUser(token)
-  if (error !== null || data.user === null) return null
-
-  const client = await admin
-    .from('clients')
-    .select('id, name, phone, nip_hash, user_id')
-    .eq('user_id', data.user.id)
-    .maybeSingle()
-  if (client.error !== null) throw client.error
-  return (client.data as ClientRow | null) ?? null
-}

@@ -45,6 +45,23 @@ export function adminClient(): SupabaseClient {
   })
 }
 
+/// The client behind the bearer token of [request], or null when there is no valid session. Signed
+/// out, the app sends the anon key as its bearer, which names no user.
+export async function signedInClient(admin: SupabaseClient, request: Request): Promise<ClientRow | null> {
+  const token = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') ?? ''
+  if (token === '') return null
+  const { data, error } = await admin.auth.getUser(token)
+  if (error !== null || data.user === null) return null
+
+  const client = await admin
+    .from('clients')
+    .select('id, name, phone, nip_hash, user_id')
+    .eq('user_id', data.user.id)
+    .maybeSingle()
+  if (client.error !== null) throw client.error
+  return (client.data as ClientRow | null) ?? null
+}
+
 /// `clients.phone` is unique, so a phone names at most one client.
 export async function clientWithPhone(admin: SupabaseClient, phone: string): Promise<ClientRow | null> {
   const { data, error } = await admin
