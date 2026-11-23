@@ -131,6 +131,24 @@ begin
       failures := failures || format('%s sees %s deactivated services', actor.name, inactive_seen);
     end if;
 
+    -- The NIP hash stays with the service role: no signed-in user reads it, not even the admin,
+    -- who reads whether a client has app access instead.
+    if actor.role_name = 'authenticated' then
+      begin
+        perform nip_hash from public.clients limit 1;
+        failures := failures || format('%s can read nip_hash', actor.name);
+      exception when insufficient_privilege then
+        null;
+      end;
+      check_count := check_count + 1;
+      begin
+        perform c.has_app_access from public.clients c limit 1;
+      exception when insufficient_privilege then
+        failures := failures || format('%s cannot read has_app_access', actor.name);
+      end;
+      check_count := check_count + 1;
+    end if;
+
     -- Adding.
     begin
       insert into public.services (name, category, base_price_mxn, estimated_days)

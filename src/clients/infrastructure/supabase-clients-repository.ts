@@ -8,14 +8,12 @@ import type { Database } from '../../shared/infrastructure/database.types'
 import type { Client } from '../domain/client'
 import type { Enrollment } from '../domain/enrollment'
 
-// `has_app_access` is a computed field: a SQL function taking the clients row, so the
-// client app's NIP hash never has to leave the database.
-type ClientRow = {
-  id: number
-  name: string
-  phone: string | null
-  has_app_access: boolean
-}
+// `has_app_access` is a generated column: the panel learns whether a client can sign in to the
+// app without the NIP hash, which no signed-in user may read, ever leaving the database.
+type ClientRow = Pick<
+  Database['public']['Tables']['clients']['Row'],
+  'id' | 'name' | 'phone' | 'has_app_access'
+>
 
 const ENROLL_FUNCTION = 'admin-enroll-client'
 
@@ -36,15 +34,13 @@ export class SupabaseClientsRepository implements ClientsRepository {
     this.client = client
   }
 
-  // https://supabase.com/docs/guides/database/functions#computed-fields
+  // https://supabase.com/docs/guides/database/tables#generated-columns
   async clients(): Promise<Client[]> {
     const { data, error } = await this.client
       .from('clients')
       .select('id, name, phone, has_app_access')
     if (error) throw error
-    // The generated types do not list computed fields as columns, so the select
-    // cannot type `has_app_access`; this is the one place that names its shape.
-    return (data as unknown as ClientRow[]).map((row) => clientFromRow(row))
+    return data.map((row) => clientFromRow(row))
   }
 
   // https://supabase.com/docs/reference/javascript/functions-invoke
@@ -57,7 +53,8 @@ export class SupabaseClientsRepository implements ClientsRepository {
 }
 
 function clientFromRow(row: ClientRow): Client {
-  return { id: String(row.id), name: row.name, phone: row.phone, hasAppAccess: row.has_app_access }
+  // Generated as NOT NULL in practice; typed nullable like every generated column.
+  return { id: String(row.id), name: row.name, phone: row.phone, hasAppAccess: row.has_app_access === true }
 }
 
 function enrollmentBody(enrollment: Enrollment) {
