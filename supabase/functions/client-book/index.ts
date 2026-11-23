@@ -5,9 +5,10 @@
 // panel's rule. A phone that already has an account needs its NIP, checked under the same
 // per-phone throttle as sign-in; a phone with no NIP is refused, because knowing a phone alone
 // never grants access to an account. A client with a session is already known: she books with no
-// name, phone or NIP, and keeps the session she has.
+// name, phone or NIP; a session that ended is told apart from bad data so the app asks her to sign
+// in again.
 //
-// Spec: CALM_mobile odd/tasks/acciones-cliente.md (S2-S5), odd/tasks/agendar-con-sesion.md (S3).
+// Spec: CALM_mobile odd/tasks/acciones-cliente.md (S2-S5), odd/tasks/agendar-con-sesion.md (S3-S4).
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import {
   adminClient,
@@ -36,6 +37,9 @@ const SLOT_TAKEN = 'Ese horario se acaba de ocupar. Elige otro.'
 const PHONE_WITHOUT_NIP =
   'Ese celular ya está registrado en el taller. Escríbele para que te dé tu NIP.'
 const SERVICE_UNAVAILABLE = 'Uno de tus arreglos ya no está disponible. Vuelve a elegirlos.'
+const BAD_BOOKING = 'Revisa los datos de tu cita.'
+// The wording of client-update-profile, so an ended session reads the same everywhere.
+const SIGNED_OUT = 'Tu sesión terminó. Vuelve a entrar.'
 
 // getUTCDay order, Sunday first, as weekly_schedule names the days.
 const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
@@ -63,8 +67,10 @@ serveClientFunction('client-book', async (request) => {
   const admin = adminClient()
   const body = await request.json().catch(() => null)
   const booking = readBooking(body)
+  if (booking === null) return problem(400, BAD_BOOKING)
   const booker = await bookerOf(admin, request, body)
-  if (booking === null || booker === null) return problem(400, 'Revisa los datos de tu cita.')
+  if (booker === 'signed_out') return problem(401, SIGNED_OUT, 'signed_out')
+  if (booker === null) return problem(400, BAD_BOOKING)
 
   const quote = await quoteOf(admin, booking)
   if (quote === null) return problem(409, SERVICE_UNAVAILABLE, 'service_unavailable')
@@ -99,20 +105,15 @@ serveClientFunction('client-book', async (request) => {
     throw links.error
   }
 
-  const appointmentSummary = { date: booking.date, time: booking.time, total_mxn: quote.totalMxn }
-  // Her session already says who she is: no NIP was checked and no new session is needed.
-  if ('signedIn' in booker) {
-    return answer(200, { ticket, client: clientSummary(client), appointment: appointmentSummary })
-  }
-
-  await clearFailures(admin, booker.contact.phone)
+  if ('contact' in booker) await clearFailures(admin, booker.contact.phone)
+  // Also with a session: app builds that predate session booking install whatever comes back.
   const refreshToken = await refreshTokenFor(admin, await authUserIdOf(admin, client))
   if (refreshToken === null) return problem(500, UNAVAILABLE)
   return answer(200, {
     ticket,
     refresh_token: refreshToken,
     client: clientSummary(client),
-    appointment: appointmentSummary,
+    appointment: { date: booking.date, time: booking.time, total_mxn: quote.totalMxn },
   })
 })
 
@@ -136,17 +137,42 @@ function readBooking(body: unknown): Booking | null {
 }
 
 /// The signed-in client, whatever contact the body carries; without a session, the name, phone and
-/// NIP she typed, or null when they are incomplete.
-async function bookerOf(admin: SupabaseClient, request: Request, body: unknown): Promise<Booker | null> {
+/// NIP she typed. 'signed_out' when a user's token that no longer names a client came without them,
+/// so she is asked to sign in again rather than told her data is wrong; null when they are incomplete.
+async function bookerOf(
+  admin: SupabaseClient,
+  request: Request,
+  body: unknown,
+): Promise<Booker | 'signed_out' | null> {
   const signedIn = await signedInClient(admin, request)
   if (signedIn !== null) return { signedIn }
 
+  const contact = contactOf(body)
+  if (contact !== null) return { contact }
+  return bearsUserToken(request) ? 'signed_out' : null
+}
+
+function contactOf(body: unknown): Contact | null {
   const fields = typeof body === 'object' && body !== null ? body as Record<string, unknown> : {}
   const name = typeof fields.name === 'string' ? fields.name.trim() : ''
   const phone = digitsOf(fields.phone)
   const nip = digitsOf(fields.nip)
   const isValid = name.length > 0 && name.length <= 80 && PHONE_PATTERN.test(phone) && NIP_PATTERN.test(nip)
-  return isValid ? { contact: { name, phone, nip } } : null
+  return isValid ? { name, phone, nip } : null
+}
+
+/// Whether the bearer claims to be a signed-in user rather than the anon or publishable key. Read
+/// without verifying the signature: it only picks which refusal to answer and never grants access.
+function bearsUserToken(request: Request): boolean {
+  const token = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') ?? ''
+  const payload = token.split('.')[1]
+  if (payload === undefined) return false
+  try {
+    const claims = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
+    return claims?.role === 'authenticated'
+  } catch {
+    return false
+  }
 }
 
 type Quote = { serviceIds: number[]; totalMxn: number }
