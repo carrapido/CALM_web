@@ -41,7 +41,7 @@ export async function pendingAppointments(
 }
 
 // Matched on ticket and appointment, since an old finished order may share the ticket.
-function hasOrder(appointment: Appointment, orders: Order[]): boolean {
+export function hasOrder(appointment: Appointment, orders: Order[]): boolean {
   return orders.some(
     (order) =>
       order.ticket === appointment.ticket &&
