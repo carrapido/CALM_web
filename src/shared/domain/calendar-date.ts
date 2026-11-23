@@ -56,6 +56,19 @@ export function addDays(date: CalendarDate, days: number): CalendarDate {
   return midnight.toISOString().slice(0, 10)
 }
 
+export function firstDayOfMonth(date: CalendarDate): CalendarDate {
+  return `${date.slice(0, 7)}-01`
+}
+
+// The same day `months` away, moved back to the last day of a shorter month: 01-31 + 1 is 02-28.
+export function addMonths(date: CalendarDate, months: number): CalendarDate {
+  const midnight = utcMidnightOf(date)
+  const targetFirst = new Date(Date.UTC(midnight.getUTCFullYear(), midnight.getUTCMonth() + months, 1))
+  const daysInTarget = new Date(Date.UTC(targetFirst.getUTCFullYear(), targetFirst.getUTCMonth() + 1, 0)).getUTCDate()
+  targetFirst.setUTCDate(Math.min(midnight.getUTCDate(), daysInTarget))
+  return targetFirst.toISOString().slice(0, 10)
+}
+
 export function weekdayOf(date: CalendarDate): Weekday {
   // getUTCDay() counts from Sunday = 0; the week here starts on Monday.
   const daysSinceMonday = (utcMidnightOf(date).getUTCDay() + 6) % 7

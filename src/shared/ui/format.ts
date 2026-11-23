@@ -6,6 +6,7 @@ const DAY_AND_MONTH = new Intl.DateTimeFormat('es-MX', {
   month: 'long',
   timeZone: 'UTC',
 })
+const MONTH = new Intl.DateTimeFormat('es-MX', { month: 'long', timeZone: 'UTC' })
 const PESOS = new Intl.NumberFormat('es-MX', {
   style: 'currency',
   currency: 'MXN',
@@ -31,6 +32,12 @@ export function formatDateRange(first: CalendarDate, last: CalendarDate): string
   const isSameMonth = firstDate.getUTCMonth() === lastDate.getUTCMonth()
   const start = isSameMonth ? String(firstDate.getUTCDate()) : DAY_AND_MONTH.format(firstDate)
   return `del ${start} al ${DAY_AND_MONTH.format(lastDate)}`
+}
+
+// "Octubre 2026": es-MX would write "octubre de 2026".
+export function formatMonthLabel(date: CalendarDate): string {
+  const midnight = utcMidnightOf(date)
+  return `${capitalize(MONTH.format(midnight))} ${midnight.getUTCFullYear()}`
 }
 
 export function formatPesos(amount: number): string {
