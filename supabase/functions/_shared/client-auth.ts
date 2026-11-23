@@ -20,6 +20,8 @@ const DECOY_HASH =
   '$argon2id$v=19$m=19456,t=2,p=1$hjQlfpqkLALK0NuPZmC2VA$lzOmu8EsFiCoxXDQ5lXPdg+ZBdshUNG00nHtgb3KIjo'
 
 export const CORS_HEADERS = {
+  // Any origin is fine: callers authenticate with a bearer token, never cookies, so another site
+  // cannot act with someone's session. safe-anything:ignore
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
