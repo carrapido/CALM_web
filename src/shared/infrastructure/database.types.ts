@@ -268,11 +268,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      auth_user_id_by_email: { Args: { p_email: string }; Returns: string }
       booking_calendar: { Args: never; Returns: Json }
       cancel_my_appointment: { Args: { p_ticket: string }; Returns: undefined }
       claim_nip_attempt: { Args: { p_phone: string }; Returns: boolean }
       mark_on_my_way: { Args: { p_ticket: string }; Returns: undefined }
+      orphaned_auth_user_id: {
+        Args: { p_client_id: number; p_email: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
