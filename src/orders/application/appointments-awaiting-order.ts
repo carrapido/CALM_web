@@ -22,6 +22,24 @@ export async function appointmentsAwaitingOrder(
     .sort(byNewestDayThenTime)
 }
 
+const LAST_CALENDAR_DATE = '9999-12-31'
+
+// Every appointment still waiting for its client to drop off the clothes: the recent ones she
+// may still come to and all the future ones, soonest first.
+export async function pendingAppointments(
+  agenda: AgendaRepository,
+  orders: OrdersRepository,
+  today: CalendarDate,
+): Promise<Appointment[]> {
+  const [appointments, allOrders] = await Promise.all([
+    agenda.appointmentsBetween(addDays(today, -RECENT_DAYS), LAST_CALENDAR_DATE),
+    orders.orders(),
+  ])
+  return appointments
+    .filter((appointment) => !hasOrder(appointment, allOrders))
+    .sort(bySoonestDayThenTime)
+}
+
 // Matched on ticket and appointment, since an old finished order may share the ticket.
 function hasOrder(appointment: Appointment, orders: Order[]): boolean {
   return orders.some(
@@ -34,5 +52,10 @@ function hasOrder(appointment: Appointment, orders: Order[]): boolean {
 
 function byNewestDayThenTime(first: Appointment, second: Appointment): number {
   if (first.date !== second.date) return second.date.localeCompare(first.date)
+  return first.time.localeCompare(second.time)
+}
+
+function bySoonestDayThenTime(first: Appointment, second: Appointment): number {
+  if (first.date !== second.date) return first.date.localeCompare(second.date)
   return first.time.localeCompare(second.time)
 }

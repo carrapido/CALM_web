@@ -30,7 +30,9 @@ export function OrdersPage({ ordersRepository, agendaRepository, now, random }: 
 
   return (
     <PageFrame title="Pedidos" action={newOrderButton}>
-      {view.name === 'orders' && <OrdersContainer repository={ordersRepository} today={today} />}
+      {view.name === 'orders' && (
+        <OrdersContainer repository={ordersRepository} agendaRepository={agendaRepository} today={today} />
+      )}
       {view.name === 'newOrder' && (
         <NewOrderContainer
           ordersRepository={ordersRepository}
