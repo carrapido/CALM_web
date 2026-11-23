@@ -12,14 +12,13 @@ import {
   adminClient,
   answer,
   authUserIdOf,
+  claimNipAttempt,
   clearFailures,
   type ClientRow,
   clientSummary,
   clientWithPhone,
-  countFailure,
   digitsOf,
   hashNip,
-  isLockedOut,
   NIP_PATTERN,
   nipMatches,
   PHONE_PATTERN,
@@ -56,13 +55,13 @@ serveClientFunction('client-book', async (request) => {
   if (booking === null) return problem(400, 'Revisa los datos de tu cita.')
 
   const admin = adminClient()
-  if (await isLockedOut(admin, booking.phone)) return problem(429, THROTTLED)
 
   const quote = await quoteOf(admin, booking)
   if (quote === null) return problem(409, SERVICE_UNAVAILABLE, 'service_unavailable')
   if (!(await isBookable(admin, booking))) return problem(409, SLOT_TAKEN, 'slot_taken')
 
   const client = await clientFor(admin, booking)
+  if (client === 'throttled') return problem(429, THROTTLED)
   if (client === 'rejected') return problem(401, REJECTED)
   if (client === 'without_nip') return problem(409, PHONE_WITHOUT_NIP, 'phone_without_nip')
 
@@ -177,13 +176,13 @@ async function isBookable(admin: SupabaseClient, booking: Booking): Promise<bool
 async function clientFor(
   admin: SupabaseClient,
   booking: Booking,
-): Promise<ClientRow | 'rejected' | 'without_nip'> {
+): Promise<ClientRow | 'rejected' | 'throttled' | 'without_nip'> {
   const existing = await clientWithPhone(admin, booking.phone)
   if (existing === null) return (await newClient(admin, booking)) ?? (await clientFor(admin, booking))
   if (existing.nip_hash === null) return 'without_nip'
-  if (await nipMatches(booking.nip, existing.nip_hash)) return existing
-  await countFailure(admin, booking.phone)
-  return 'rejected'
+  // The same per-phone claim as sign-in, so booking is no way around it.
+  if (!(await claimNipAttempt(admin, booking.phone))) return 'throttled'
+  return (await nipMatches(booking.nip, existing.nip_hash)) ? existing : 'rejected'
 }
 
 /// Null when the phone was registered meanwhile, so the caller treats it as an existing account.

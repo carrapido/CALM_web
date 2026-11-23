@@ -6,13 +6,12 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import {
   adminClient,
   answer,
+  claimNipAttempt,
   clearFailures,
   type ClientRow,
   clientSummary,
-  countFailure,
   digitsOf,
   hashNip,
-  isLockedOut,
   NIP_PATTERN,
   nipMatches,
   PHONE_PATTERN,
@@ -46,9 +45,8 @@ serveClientFunction('client-update-profile', async (request) => {
   const changesNip = currentNip !== '' || newNip !== ''
   if (changesNip) {
     const signInPhone = client.phone!
-    if (await isLockedOut(admin, signInPhone)) return problem(429, THROTTLED)
+    if (!(await claimNipAttempt(admin, signInPhone))) return problem(429, THROTTLED)
     if (!(await nipMatches(currentNip, client.nip_hash))) {
-      await countFailure(admin, signInPhone)
       return problem(401, CURRENT_NIP_WRONG, 'current_nip')
     }
     await clearFailures(admin, signInPhone)
