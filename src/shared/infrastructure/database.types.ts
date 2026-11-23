@@ -116,6 +116,7 @@ export type Database = {
       }
       clients: {
         Row: {
+          has_app_access: boolean | null
           id: number
           name: string
           nip_hash: string | null
@@ -123,6 +124,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          has_app_access?: boolean | null
           id?: never
           name: string
           nip_hash?: string | null
@@ -130,6 +132,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          has_app_access?: boolean | null
           id?: never
           name?: string
           nip_hash?: string | null
@@ -265,12 +268,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      auth_user_id_by_email: { Args: { p_email: string }; Returns: string }
       booking_calendar: { Args: never; Returns: Json }
       cancel_my_appointment: { Args: { p_ticket: string }; Returns: undefined }
-      has_app_access: {
-        Args: { client: Database['public']['Tables']['clients']['Row'] }
-        Returns: boolean
-      }
+      claim_nip_attempt: { Args: { p_phone: string }; Returns: boolean }
       mark_on_my_way: { Args: { p_ticket: string }; Returns: undefined }
     }
     Enums: {
