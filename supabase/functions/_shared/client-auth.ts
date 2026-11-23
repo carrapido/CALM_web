@@ -116,7 +116,8 @@ async function createdAuthUserId(admin: SupabaseClient, client: ClientRow, email
     email,
     email_confirm: true,
     password: crypto.randomUUID() + crypto.randomUUID(),
-    user_metadata: { client_id: client.id },
+    // app_metadata, which only the service role can write: it says whose this auth user is.
+    app_metadata: { client_id: client.id },
   })
   if (error !== null || data.user === null) throw error ?? new Error('No se pudo crear el usuario')
   return data.user.id
