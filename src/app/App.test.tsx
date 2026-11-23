@@ -42,10 +42,19 @@ describe('Admin shell navigation', () => {
     expect(pageHeading('Agenda')).toBeInTheDocument()
   })
 
-  it('lists the three admin sections', () => {
+  it('shows the Clientes page named in the hash', async () => {
+    window.location.hash = '#/clientes'
+
     renderApp()
 
-    const expectedNames = ['Agenda', 'Pedidos', 'Catálogo']
+    expect(pageHeading('Clientes')).toBeInTheDocument()
+    expect(await screen.findByText('No hay clientes.')).toBeInTheDocument()
+  })
+
+  it('lists the four admin sections', () => {
+    renderApp()
+
+    const expectedNames = ['Agenda', 'Pedidos', 'Catálogo', 'Clientes']
     const links = within(adminNavigation()).getAllByRole('link')
 
     expect(links).toHaveLength(expectedNames.length)

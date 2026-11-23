@@ -1,9 +1,10 @@
 import { InMemoryAgendaRepository } from '../agenda/infrastructure/in-memory-agenda-repository'
 import { InMemoryCatalogRepository } from '../catalog/infrastructure/in-memory-catalog-repository'
+import { InMemoryClientsRepository } from '../clients/infrastructure/in-memory-clients-repository'
 import { InMemoryOrdersRepository } from '../orders/infrastructure/in-memory-orders-repository'
 import type { AppProps } from './App'
 
-// A panel with no appointments, orders or services, for tests about the shell around them.
+// A panel with no appointments, orders, services or clients, for tests about the shell around them.
 export function emptyPanelProps(onSignOut: () => void = () => {}): AppProps {
   return {
     agendaRepository: new InMemoryAgendaRepository({
@@ -20,6 +21,7 @@ export function emptyPanelProps(onSignOut: () => void = () => {}): AppProps {
     }),
     ordersRepository: new InMemoryOrdersRepository([]),
     catalogRepository: new InMemoryCatalogRepository([]),
+    clientsRepository: new InMemoryClientsRepository([]),
     now: () => new Date(),
     random: Math.random,
     onSignOut,
