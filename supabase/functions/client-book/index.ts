@@ -60,7 +60,7 @@ type Contact = {
   nip: string
 }
 
-/// Who books: the client her session names, or the contact a client without one typed.
+/// Who books: the contact she typed, checked by its NIP, or else the client her session names.
 type Booker = { signedIn: ClientRow } | { contact: Contact }
 
 serveClientFunction('client-book', async (request) => {
@@ -105,15 +105,21 @@ serveClientFunction('client-book', async (request) => {
     throw links.error
   }
 
-  if ('contact' in booker) await clearFailures(admin, booker.contact.phone)
-  // Also with a session: app builds that predate session booking install whatever comes back.
+  const booked = { date: booking.date, time: booking.time, total_mxn: quote.totalMxn }
+  // A session only proves who she is for as long as it lasts: it never earns a new one. Only the
+  // phone and its NIP, checked above under the throttle, are worth a refresh token.
+  if ('signedIn' in booker) {
+    return answer(200, { ticket, client: clientSummary(client), appointment: booked })
+  }
+
+  await clearFailures(admin, booker.contact.phone)
   const refreshToken = await refreshTokenFor(admin, await authUserIdOf(admin, client))
   if (refreshToken === null) return problem(500, UNAVAILABLE)
   return answer(200, {
     ticket,
     refresh_token: refreshToken,
     client: clientSummary(client),
-    appointment: { date: booking.date, time: booking.time, total_mxn: quote.totalMxn },
+    appointment: booked,
   })
 })
 
@@ -136,19 +142,20 @@ function readBooking(body: unknown): Booking | null {
   }
 }
 
-/// The signed-in client, whatever contact the body carries; without a session, the name, phone and
-/// NIP she typed. 'signed_out' when a user's token that no longer names a client came without them,
-/// so she is asked to sign in again rather than told her data is wrong; null when they are incomplete.
+/// The name, phone and NIP she typed, whatever session comes along: app builds that predate session
+/// booking always send them and expect the phone and NIP to decide. Without them, the client her
+/// session names. 'signed_out' when a user's token that no longer names a client came without them,
+/// so she is asked to sign in again rather than told her data is wrong; null otherwise.
 async function bookerOf(
   admin: SupabaseClient,
   request: Request,
   body: unknown,
 ): Promise<Booker | 'signed_out' | null> {
-  const signedIn = await signedInClient(admin, request)
-  if (signedIn !== null) return { signedIn }
-
   const contact = contactOf(body)
   if (contact !== null) return { contact }
+
+  const signedIn = await signedInClient(admin, request)
+  if (signedIn !== null) return { signedIn }
   return bearsUserToken(request) ? 'signed_out' : null
 }
 
