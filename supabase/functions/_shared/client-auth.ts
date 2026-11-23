@@ -10,10 +10,6 @@ import { argon2id, argon2Verify } from 'npm:hash-wasm@4'
 export const PHONE_PATTERN = /^\d{10}$/
 export const NIP_PATTERN = /^\d{4}$/
 
-// A phone is locked out after this many consecutive failures, for this long.
-const MAX_FAILURES = 5
-const LOCKOUT_MINUTES = 15
-
 // Answered to every rejected pair, so a wrong NIP and an unknown phone look the same.
 export const REJECTED = 'Tu celular o tu NIP no coinciden.'
 export const THROTTLED = 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.'
@@ -79,27 +75,14 @@ export function hashNip(nip: string): Promise<string> {
   })
 }
 
-export async function isLockedOut(admin: SupabaseClient, phone: string): Promise<boolean> {
-  const { data } = await admin
-    .from('sign_in_attempts')
-    .select('locked_until')
-    .eq('phone', phone)
-    .maybeSingle()
-  const lockedUntil = (data as { locked_until: string | null } | null)?.locked_until
-  return lockedUntil != null && new Date(lockedUntil) > new Date()
-}
-
-export async function countFailure(admin: SupabaseClient, phone: string): Promise<void> {
-  const { data } = await admin
-    .from('sign_in_attempts')
-    .select('failures')
-    .eq('phone', phone)
-    .maybeSingle()
-  const failures = ((data as { failures: number } | null)?.failures ?? 0) + 1
-  const lockedUntil = failures >= MAX_FAILURES
-    ? new Date(Date.now() + LOCKOUT_MINUTES * 60_000).toISOString()
-    : null
-  await admin.from('sign_in_attempts').upsert({ phone, failures, locked_until: lockedUntil })
+/// Counts a NIP check against [phone] before it runs, and says whether it may run: five checks per
+/// phone until a right NIP clears them, then fifteen minutes of lockout. One atomic statement in
+/// the database (`claim_nip_attempt`), so a burst of concurrent requests cannot all slip past the
+/// count; and a database error refuses the check instead of letting it through.
+export async function claimNipAttempt(admin: SupabaseClient, phone: string): Promise<boolean> {
+  const { data, error } = await admin.rpc('claim_nip_attempt', { p_phone: phone })
+  if (error !== null) throw error
+  return data === true
 }
 
 export async function clearFailures(admin: SupabaseClient, phone: string): Promise<void> {

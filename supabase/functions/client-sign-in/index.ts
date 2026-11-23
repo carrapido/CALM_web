@@ -7,11 +7,10 @@ import {
   answer,
   authUserIdOf,
   clearFailures,
+  claimNipAttempt,
   clientSummary,
   clientWithPhone,
-  countFailure,
   digitsOf,
-  isLockedOut,
   NIP_PATTERN,
   nipMatches,
   PHONE_PATTERN,
@@ -32,14 +31,12 @@ serveClientFunction('client-sign-in', async (request) => {
   }
 
   const admin = adminClient()
-  if (await isLockedOut(admin, phone)) return problem(429, THROTTLED)
+  // Claimed before the check, so concurrent guesses are counted one by one.
+  if (!(await claimNipAttempt(admin, phone))) return problem(429, THROTTLED)
 
   // Always verified, against a decoy when the phone is unknown, so the timing does not tell.
   const client = await clientWithPhone(admin, phone)
-  if (!(await nipMatches(nip, client?.nip_hash ?? null))) {
-    await countFailure(admin, phone)
-    return problem(401, REJECTED)
-  }
+  if (!(await nipMatches(nip, client?.nip_hash ?? null))) return problem(401, REJECTED)
 
   // A match needs a stored hash, so the client exists here.
   const refreshToken = await refreshTokenFor(admin, await authUserIdOf(admin, client!))
