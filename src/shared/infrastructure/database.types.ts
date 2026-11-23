@@ -213,6 +213,24 @@ export type Database = {
         }
         Relationships: []
       }
+      sign_in_attempts: {
+        Row: {
+          failures: number
+          locked_until: string | null
+          phone: string
+        }
+        Insert: {
+          failures?: number
+          locked_until?: string | null
+          phone: string
+        }
+        Update: {
+          failures?: number
+          locked_until?: string | null
+          phone?: string
+        }
+        Relationships: []
+      }
       weekly_schedule: {
         Row: {
           closes_at: string | null
@@ -247,7 +265,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      booking_calendar: { Args: never; Returns: Json }
+      cancel_my_appointment: { Args: { p_ticket: string }; Returns: undefined }
+      has_app_access: {
+        Args: { client: Database['public']['Tables']['clients']['Row'] }
+        Returns: boolean
+      }
+      mark_on_my_way: { Args: { p_ticket: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
