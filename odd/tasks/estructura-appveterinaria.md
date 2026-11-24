@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 ---
 
 # Estructura de carpetas como appVeterinaria
@@ -16,8 +16,8 @@ Reorganize CALM_web's frontend from feature-based hexagonal folders into appVete
 
 ## Tasks
 
-- [ ] T1 (S1-S4) Move every file to the target layout, fix imports, keep all tests passing; update README structure and design/system.md paths. Route: worker. Commit: —
-- [ ] T2 (S5) Verify: tests, tsc, oxlint, build, nothing left in old folders; report unmet rubric criteria. Route: inline. Commit: —
+- [x] T1 (S1-S4) Move every file to the target layout, fix imports, keep all tests passing; update README structure and design/system.md paths. Route: worker. Commit: 096a832
+- [x] T2 (S5) Verify: tests, tsc, oxlint, build, nothing left in old folders; report unmet rubric criteria. Route: inline. Commit: — (verification only)
 
 ## Log
 
@@ -28,3 +28,4 @@ Reorganize CALM_web's frontend from feature-based hexagonal folders into appVete
 - **L5** User answers: "Agregar utils/ y hooks/ (recomendado)"; "Todos en src/test/".
 - **L6** User: "Construye el backend para cumplir con los criterios que faltan una vez terminado la reestructuración del front o evalua cual es mejor plan de acción". Backend work authorized after T1/T2; plan and scope questions asked before tracking it as a separate feature.
 - **L7** User answers for the backend: scope "Todo el panel admin (recomendado)" (agenda, pedidos, catálogo, clientes y horario through Express); auth "Token de Supabase Auth (recomendado)" (React sends the Supabase access token as Bearer; an Express middleware verifies it and checks the caller is an admin). Tracked as its own feature after T2.
+- **L8** T1 in 096a832: 140 renames (git detects all as R), README structure + design/system.md paths. T2: 31 files / 203 tests, tsc, oxlint, build pass; src has only components, hooks, pages, services, test, types, utils. Unmet rubric criteria handed to the backend feature: C1, C2, C5, C7, C8.
