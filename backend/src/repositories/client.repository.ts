@@ -2,6 +2,7 @@ import { DatabaseError, type Pool, type PoolClient } from 'pg'
 import type {
   AppAccess, Client, ClientRepository, GrantedAccess, NewClient,
 } from '../types/client.js'
+import { inTransaction } from '../utils/in-transaction.js'
 
 // node-postgres reads bigint as a string, which is the id type the panel uses.
 // has_app_access is generated from nip_hash and phone, so nip_hash never has to leave the table.
@@ -79,22 +80,6 @@ async function updateAccess(db: PoolClient, { clientId, phone, nipHash }: AppAcc
 // new phone and on the one she leaves.
 async function clearSignInAttempts(db: PoolClient, phones: (string | null)[]): Promise<void> {
   await db.query('delete from sign_in_attempts where phone = any($1::text[])', [phones.filter((phone) => phone !== null)])
-}
-
-// https://node-postgres.com/features/transactions
-async function inTransaction<T>(pool: Pool, work: (db: PoolClient) => Promise<T>): Promise<T> {
-  const db = await pool.connect()
-  try {
-    await db.query('begin')
-    const result = await work(db)
-    await db.query('commit')
-    return result
-  } catch (error) {
-    await db.query('rollback')
-    throw error
-  } finally {
-    db.release()
-  }
 }
 
 function isUniqueViolation(error: unknown): boolean {

@@ -238,13 +238,16 @@ describe('DELETE /api/appointments/:ticket', () => {
   it('answers 409 when an order already points to the appointment and keeps it', async () => {
     const { app, agenda } = agendaApp()
     agenda.cancelAppointment = async () => {
-      throw postgresError('23503')
+      throw postgresError('23503', 'still referenced from table "orders"', 'orders_appointment_id_fkey')
     }
 
     const response = await request(app).delete('/api/appointments/0427?date=2026-06-03').set(asAdmin())
 
     expect(response.status).toBe(409)
-    expect(response.body.code).toBe('conflict')
+    expect(response.body).toEqual({
+      error: 'Esta cita ya tiene un pedido; cancela o entrega el pedido primero.',
+      code: 'appointment_has_order',
+    })
     expect(await agenda.appointmentsBetween('2026-01-01', '2026-12-31')).toEqual([ANA, WALK_IN, LATER])
   })
 

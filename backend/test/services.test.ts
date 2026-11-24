@@ -23,6 +23,7 @@ const NAME_PROBLEM = 'El nombre es obligatorio y tiene hasta 80 caracteres.'
 const PRICE_PROBLEM = 'El precio es un entero de 0 o más, o se cotiza en tienda.'
 const DAYS_PROBLEM = 'Los días estimados son un entero de 0 a 30.'
 const ID_PROBLEM = 'El identificador del servicio no es válido.'
+const NAME_TAKEN = { error: 'Ya existe un servicio con ese nombre.', code: 'service_name_taken' }
 
 const NEW_HEM = { name: 'Dobladillo', price: { kind: 'base', amountMxn: 80 }, estimatedDays: 2 }
 
@@ -108,7 +109,7 @@ describe('POST /api/services', () => {
       .send({ ...NEW_HEM, name: 'Parche' })
 
     expect(response.status).toBe(409)
-    expect(response.body).toEqual({ error: 'Ya existe un registro con esos datos.', code: 'conflict' })
+    expect(response.body).toEqual(NAME_TAKEN)
     expect(await services.all()).toEqual([PATCH, WEDDING_DRESS])
   })
 })
@@ -166,14 +167,17 @@ describe('PUT /api/services/:id', () => {
     expect(response.body).toEqual({ error: 'El servicio no existe.', code: 'not_found' })
   })
 
-  it('answers 409 when the new name belongs to another service', async () => {
-    const response = await request(catalogApp().app)
+  it('answers 409 when the new name belongs to another service and changes nothing', async () => {
+    const { app, services } = catalogApp()
+
+    const response = await request(app)
       .put('/api/services/3')
       .set(asAdmin())
       .send({ ...NEW_PATCH, name: WEDDING_DRESS.name })
 
     expect(response.status).toBe(409)
-    expect(response.body.code).toBe('conflict')
+    expect(response.body).toEqual(NAME_TAKEN)
+    expect(await services.all()).toEqual([PATCH, WEDDING_DRESS])
   })
 })
 

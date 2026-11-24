@@ -1,5 +1,6 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express'
 import { DatabaseError } from 'pg'
+import { conflictOfConstraint } from '../utils/conflicts.js'
 import { HttpError } from '../utils/http-error.js'
 
 const INVALID_INPUT = new HttpError(400, 'invalid_input', 'Los datos enviados no son válidos.')
@@ -35,11 +36,16 @@ export const handleErrors: ErrorRequestHandler = (error, _req, res, _next) => {
 
 function httpErrorFor(error: unknown): HttpError {
   if (error instanceof HttpError) return error
-  if (error instanceof DatabaseError) return HTTP_ERROR_BY_POSTGRES_CODE[error.code ?? ''] ?? UNAVAILABLE
+  if (error instanceof DatabaseError) return httpErrorForDatabase(error)
   if (isUnreadableBody(error)) return INVALID_INPUT
   if (isBodyTooLarge(error)) return BODY_TOO_LARGE
   if (isUnsupportedBody(error)) return UNSUPPORTED_BODY
   return UNAVAILABLE
+}
+
+// A known constraint has its own message; any other falls back to the one for its code.
+function httpErrorForDatabase(error: DatabaseError): HttpError {
+  return conflictOfConstraint(error.constraint) ?? HTTP_ERROR_BY_POSTGRES_CODE[error.code ?? ''] ?? UNAVAILABLE
 }
 
 const BODY_TOO_LARGE = new HttpError(413, 'body_too_large', 'Los datos enviados son demasiado grandes.')

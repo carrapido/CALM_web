@@ -138,6 +138,24 @@ El modelo de datos está en [docs/arquitectura.md](docs/arquitectura.md#modelo-d
 | Producción | `npm run preview` | `npm --prefix backend start` |
 | *Linter* | `npm run lint` | — |
 
+### Pruebas contra una base de datos desechable
+
+`npm --prefix backend test` usa repositorios en memoria. Las pruebas del SQL de los repositorios (`backend/test/repositories.sql.test.ts`) corren solo con `TEST_DATABASE_URL`, y **borran y vuelven a crear** los esquemas `public`, `private` y `auth` de esa base antes de cada prueba. Nunca la apuntes a Supabase ni a una base que quieras conservar; las pruebas no leen `DATABASE_URL`.
+
+1. Levanta un Postgres desechable en un puerto libre (aquí el 55434):
+
+   ```bash
+   docker run -d --rm --name calm-pruebas -e POSTGRES_PASSWORD=pruebas -p 55434:5432 postgres:17-alpine
+   ```
+
+2. Espera a que acepte conexiones (`docker exec calm-pruebas pg_isready -U postgres`) y corre las pruebas:
+
+   ```bash
+   TEST_DATABASE_URL=postgresql://postgres:pruebas@localhost:55434/postgres npm --prefix backend run test:db
+   ```
+
+3. Detenlo (con `--rm` se borra solo): `docker stop calm-pruebas`.
+
 ## Puertos
 
 | Servicio | URL |

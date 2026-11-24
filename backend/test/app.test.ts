@@ -137,6 +137,36 @@ describe('The error middleware', () => {
     })
   })
 
+  it.each([
+    ['23505', 'services_name_key', { error: 'Ya existe un servicio con ese nombre.', code: 'service_name_taken' }],
+    ['23505', 'clients_phone_key', { error: 'Ese celular ya es de otro cliente.', code: 'phone_taken' }],
+    ['23505', 'orders_active_ticket_key', { error: 'Ya hay un pedido activo con ese folio.', code: 'ticket_taken' }],
+    ['23505', 'orders_appointment_id_key', { error: 'Esta cita ya tiene un pedido.', code: 'appointment_has_order' }],
+    [
+      '23503',
+      'orders_appointment_id_fkey',
+      { error: 'Esta cita ya tiene un pedido; cancela o entrega el pedido primero.', code: 'appointment_has_order' },
+    ],
+  ])('answers 409 with its own message when Postgres %s names %s', async (code, constraint, body) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const services = failingServices(postgresError(code, 'database refused the statement', constraint))
+
+    const response = await request(testApp({ services })).get('/api/services').set(asAdmin())
+
+    expect(response.status).toBe(409)
+    expect(response.body).toEqual(body)
+  })
+
+  it('keeps the general 409 for a constraint it does not know', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const services = failingServices(postgresError('23505', 'duplicate key', 'some_other_key'))
+
+    const response = await request(testApp({ services })).get('/api/services').set(asAdmin())
+
+    expect(response.status).toBe(409)
+    expect(response.body).toEqual({ error: 'Ya existe un registro con esos datos.', code: 'conflict' })
+  })
+
   it('answers 400 when Postgres rejects a value (22P02)', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const services = failingServices(postgresError('22P02'))
