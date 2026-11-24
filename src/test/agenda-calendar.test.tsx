@@ -1,7 +1,9 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
+import type { Appointment } from '../types/appointment'
 import {
+  APPOINTMENTS_AWAITING_ORDERS,
   button,
   CARLOS_CHIP,
   chipsIn,
@@ -125,6 +127,26 @@ describe('Chip detail', () => {
 
     expect(chipsIn(await findDay('Sábado 24 de octubre'))).toEqual([])
     expect(screen.queryByRole('region', { name: 'Detalle de la cita' })).not.toBeInTheDocument()
+  })
+
+  it('cancels only the chosen appointment when another date repeats its ticket', async () => {
+    const rosaWithMariasTicket: Appointment = {
+      ticket: '4821',
+      clientName: 'Rosa Chan',
+      date: '2026-10-29',
+      time: '11:00',
+      quote: { services: ['Bastilla'], preliminaryTotalMxn: 100 },
+    }
+    renderAgendaCalendar({ appointments: [APPOINTMENTS_AWAITING_ORDERS[0], rosaWithMariasTicket] })
+    const saturday = await findDay('Sábado 24 de octubre')
+
+    await userEvent.click(within(saturday).getByRole('button', { name: MARIA_CHIP }))
+    const detail = screen.getByRole('region', { name: 'Detalle de la cita' })
+    await userEvent.click(within(detail).getByRole('button', { name: 'Cancelar cita' }))
+    await userEvent.click(button('Sí, cancelar la cita'))
+
+    expect(chipsIn(await findDay('Sábado 24 de octubre'))).toEqual([])
+    expect(chipsIn(await findDay('Jueves 29 de octubre'))).toEqual(['Cita por recibir, 11:00, Rosa Chan, ticket 4821'])
   })
 
   it('opens the order detail and moves the order forward', async () => {

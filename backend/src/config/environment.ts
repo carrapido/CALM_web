@@ -7,6 +7,8 @@ export type Environment = {
   databaseSslCa?: string
   supabaseUrl: string
   supabasePublishableKey: string
+  // Lets the server rename a client's auth email when her phone changes; never sent to the panel.
+  supabaseServiceRoleKey: string
   corsOrigin: string
 }
 
@@ -18,6 +20,7 @@ export function readEnvironment(): Environment {
     databaseSslCa: process.env.DATABASE_SSL_CA || undefined,
     supabaseUrl: required('SUPABASE_URL'),
     supabasePublishableKey: required('SUPABASE_PUBLISHABLE_KEY'),
+    supabaseServiceRoleKey: required('SUPABASE_SERVICE_ROLE_KEY'),
     corsOrigin: (process.env.CORS_ORIGIN ?? 'http://localhost:5173').replace(/\/+$/, ''),
   }
 }
