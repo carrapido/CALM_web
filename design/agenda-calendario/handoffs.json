@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "chosen": "01-mes-con-detalle.html",
+  "handoffs": {
+    "01-mes-con-detalle.html": {
+      "status": "implemented",
+      "queued": false,
+      "sentAt": "2026-11-23T23:02:32.589Z",
+      "startedAt": "2026-11-23T23:02:43.357Z",
+      "implementedAt": "2026-11-23T23:28:47.940Z",
+      "feature": "odd/tasks/agenda-calendario.md",
+      "note": "Implementado en feat/agenda-calendario (9dec3cc, ae7ba46, 183ecfb). 195/195 tests. Sin vista previa: la app pide login de Supabase."
+    }
+  }
+}

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CALM · sistema de diseño</title>
+<style>
+:root{--bg:#f2f4f7;--card:#fff;--ink:#0f172a;--ink2:#45464d;--outline:#767b85;--fill:rgb(15 23 42/.06);--sep:rgb(15 23 42/.08);--focus:#0b57d0;--now:#d70015;--warm:#fff4d6;--onwarm:#6b4a00;--ok:#e3f5e9;--onok:#0b5b2a;--err:#c4001a;--errc:#fdecec;--shadow:0 1px 2px rgb(15 23 42/.05),0 8px 24px rgb(15 23 42/.06)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:17px;line-height:24px}
+main{max-width:1376px;margin:0 auto;padding:32px}h1{font-size:40px;line-height:42px;letter-spacing:-.025em;font-weight:800;margin:0 0 24px}h2{font-size:20px;font-weight:700;margin:32px 0 12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}.sw{background:var(--card);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;font-size:13px;line-height:18px}.sw div{height:64px}.sw p{margin:8px 10px}
+.card{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:24px}.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.btn{min-height:56px;border-radius:14px;padding:0 16px;font:inherit;font-weight:700;border:0;cursor:pointer}.p{background:var(--ink);color:#fff}.s{background:var(--fill);color:var(--ink)}.d{background:#fff;color:var(--err);box-shadow:inset 0 0 0 1px var(--sep)}
+.seg{display:inline-flex;background:var(--fill);border-radius:13px;padding:3px}.seg button{min-height:48px;min-width:104px;border-radius:10px;border:0;background:transparent;font:inherit;font-size:15px;font-weight:600;color:var(--ink2)}.seg [aria-pressed=true]{background:#fff;color:var(--ink);font-weight:800;box-shadow:0 1px 3px rgb(15 23 42/.14)}
+button:focus-visible{outline:3px solid var(--focus);outline-offset:2px}.chip{display:inline-block;border-radius:8px;padding:4px 10px;font-size:14px;font-weight:700}
+.type p{margin:6px 0}
+</style>
+</head>
+<body>
+<main>
+<h1>Sistema de diseño CALM</h1>
+<h2>Colores</h2>
+<div class="grid">
+<div class="sw"><div style="background:#f2f4f7"></div><p><b>background</b><br>#f2f4f7</p></div>
+<div class="sw"><div style="background:#fff;border-bottom:1px solid var(--sep)"></div><p><b>surface-lowest</b><br>#ffffff</p></div>
+<div class="sw"><div style="background:#0f172a"></div><p><b>primary / on-surface</b><br>#0f172a</p></div>
+<div class="sw"><div style="background:#45464d"></div><p><b>on-surface-variant</b><br>#45464d</p></div>
+<div class="sw"><div style="background:#767b85"></div><p><b>outline</b><br>#767b85</p></div>
+<div class="sw"><div style="background:#0b57d0"></div><p><b>focus</b><br>#0b57d0</p></div>
+<div class="sw"><div style="background:#d70015"></div><p><b>now</b><br>#d70015</p></div>
+<div class="sw"><div style="background:#fff4d6"></div><p><b>secondary-container</b><br>#fff4d6</p></div>
+<div class="sw"><div style="background:#e3f5e9"></div><p><b>success-container</b><br>#e3f5e9</p></div>
+<div class="sw"><div style="background:#fdecec"></div><p><b>error-container</b><br>#fdecec</p></div>
+<div class="sw"><div style="background:#c4001a"></div><p><b>error</b><br>#c4001a</p></div>
+</div>
+<h2>Tipografía</h2>
+<div class="card type">
+<p style="font-size:40px;line-height:42px;letter-spacing:-.025em;font-weight:800">Display · Agenda</p>
+<p style="font-size:24px;line-height:30px;font-weight:800">Headline lg · Sábado 24 de octubre</p>
+<p style="font-size:20px;font-weight:700">Headline md · Detalle del pedido</p>
+<p style="font-size:17px;font-weight:600">Title md · Ticket 7720 · Carlos Ruiz</p>
+<p style="font-size:17px">Body lg · Ajuste de vestido de novia</p>
+<p style="font-size:15px">Body md · Hoy a las 10:30</p>
+<p style="font-size:12px;letter-spacing:.08em;font-weight:800">LABEL TECHNICAL · ENTREGA</p>
+</div>
+<h2>Componentes</h2>
+<div class="card">
+<div class="row">
+<button class="btn p">Nuevo pedido</button><button class="btn s">Mi horario</button><button class="btn d">Cancelar pedido</button>
+<div class="seg" role="group" aria-label="Vista"><button aria-pressed="true">Día</button><button aria-pressed="false">Semana</button></div>
+<span class="chip" style="background:var(--ok);color:var(--onok)">Listo para recoger</span>
+<span class="chip" style="background:var(--fill)">En proceso</span>
+</div>
+</div>
+</main>
+</body>
+</html>

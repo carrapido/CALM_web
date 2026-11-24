@@ -1,0 +1,766 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agenda · Mes con detalle al lado</title>
+<style>
+/* Tokens copied from src/index.css (@theme). Only --color-appt / --color-on-appt are new. */
+:root{
+  --color-background:#f2f4f7;
+  --color-surface-container-lowest:#ffffff;
+  --color-surface-container-low:#f7f8fa;
+  --color-surface-container:#eceef2;
+  --color-on-surface:#0f172a;
+  --color-on-surface-variant:#45464d;
+  --color-outline:#767b85;
+  --color-outline-variant:#c9cdd4;
+  --color-fill:rgb(15 23 42 / 0.06);
+  --color-fill-strong:rgb(15 23 42 / 0.08);
+  --color-separator:rgb(15 23 42 / 0.08);
+  --color-focus:#0b57d0;
+  --color-now:#d70015;
+  --color-primary:#0f172a;
+  --color-on-primary:#ffffff;
+  --color-primary-container:#1e293b;
+  --color-secondary-container:#fff4d6;
+  --color-on-secondary-fixed:#6b4a00;
+  --color-success-container:#e3f5e9;
+  --color-on-success-container:#0b5b2a;
+  --color-error:#c4001a;
+  --color-on-error:#ffffff;
+  --color-error-container:#fdecec;
+  --color-on-error-container:#9b0014;
+  /* New: "Cita por recibir", same family as the focus blue, ink passes AA on the tint. */
+  --color-appt:#e7efff;
+  --color-on-appt:#0a3f9c;
+  --shadow-card:0 1px 2px rgb(15 23 42 / 0.05), 0 8px 24px rgb(15 23 42 / 0.06);
+  --radius-lg:0.875rem;
+  --radius-xl:1rem;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--color-background);color:var(--color-on-surface);
+  font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:16px;line-height:1.5;
+  -webkit-font-smoothing:antialiased}
+h1,h2,h3,p,dl,dd,ol{margin:0;padding:0}
+ol{list-style:none}
+button,input{font:inherit;color:inherit;margin:0}
+button{background:transparent;border:0;padding:0;cursor:pointer}
+button:disabled{cursor:default}
+a{color:inherit;text-decoration:none}
+[hidden]{display:none!important}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* index.css @layer base */
+:where(button,a){-webkit-tap-highlight-color:transparent}
+:where(button:not(:disabled),a):active{scale:.98}
+:where(button,a,input):focus-visible{outline:3px solid var(--color-focus);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){
+  :where(button,a):active{scale:none}
+  *{transition:none!important}
+}
+
+/* Type scale (index.css --text-*) */
+.t-display{font-size:40px;line-height:42px;letter-spacing:-.025em;font-weight:800}
+.t-headline-lg{font-size:24px;line-height:30px;letter-spacing:-.015em;font-weight:800}
+.t-headline-md{font-size:20px;line-height:26px;letter-spacing:-.01em;font-weight:700}
+.t-title-md{font-size:17px;line-height:22px;font-weight:600}
+.t-body-lg{font-size:17px;line-height:24px;font-weight:400}
+.t-body-md{font-size:15px;line-height:20px;font-weight:400}
+.t-label-lg{font-size:14px;line-height:18px;letter-spacing:.01em;font-weight:700}
+.t-label-tech{font-size:12px;line-height:16px;letter-spacing:.08em;font-weight:800;text-transform:uppercase}
+.variant{color:var(--color-on-surface-variant)}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* Icon: Material Symbols Outlined at 24px, drawn as inline SVG. */
+.icon{width:24px;height:24px;flex:none;fill:currentColor;display:block}
+.icon-sm{width:18px;height:18px}
+
+/* ---------- AdminShell ---------- */
+.shell-aside{position:fixed;inset:0 auto 0 0;width:288px;display:flex;flex-direction:column;gap:28px;
+  border-right:1px solid var(--color-separator);background:var(--color-surface-container-lowest);padding:28px 16px 20px}
+.brand{display:flex;align-items:center;gap:8px;padding:0 12px}
+.brand-glyph{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:9px;
+  background:var(--color-primary);color:var(--color-on-primary)}
+.nav{display:flex;flex:1;flex-direction:column;gap:4px}
+.nav a{display:flex;align-items:center;gap:12px;height:50px;padding:0 14px;border-radius:var(--radius-lg);
+  font-size:17px;line-height:22px;font-weight:600;color:var(--color-on-surface);transition:background-color .15s}
+.nav a:hover{background:var(--color-fill)}
+.nav a[aria-current=page]{background:var(--color-primary);color:var(--color-on-primary);font-weight:700}
+.identity{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--color-separator);padding-top:14px}
+.identity-row{display:flex;align-items:center;gap:12px;padding:0 12px}
+.avatar{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:999px;
+  background:var(--color-fill-strong);font-size:14px;line-height:18px;font-weight:800}
+main{margin-left:288px}
+
+/* ---------- PageFrame ---------- */
+.page{max-width:1080px;margin:0 auto;padding:40px 32px}
+.page-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px}
+.page-actions{display:flex;gap:12px}
+
+/* ---------- Button (button-classes.ts) ---------- */
+.btn{display:flex;min-height:56px;align-items:center;justify-content:center;gap:4px;border-radius:var(--radius-lg);
+  padding:0 16px;font-size:17px;line-height:22px;font-weight:700;transition:background-color .15s;white-space:nowrap}
+.btn-primary{background:var(--color-primary);color:var(--color-on-primary)}
+.btn-primary:hover{background:var(--color-primary-container)}
+.btn-secondary{background:var(--color-fill);color:var(--color-on-surface)}
+.btn-secondary:hover{background:var(--color-fill-strong)}
+.btn-danger{background:var(--color-error);color:var(--color-on-error)}
+.btn-danger:hover{background:var(--color-on-error-container)}
+.btn-subtle-danger{background:var(--color-surface-container-lowest);color:var(--color-error)}
+.btn-subtle-danger:hover{background:var(--color-error-container)}
+
+/* ---------- SegmentedControl ---------- */
+.seg{display:flex;align-self:flex-start;border-radius:13px;background:var(--color-fill);padding:3px}
+.seg button{min-height:48px;min-width:104px;border-radius:10px;padding:0 18px;font-size:15px;line-height:20px;
+  font-weight:600;color:var(--color-on-surface-variant);transition:color .15s}
+.seg button:hover{color:var(--color-on-surface)}
+.seg button[aria-pressed=true]{background:var(--color-surface-container-lowest);font-weight:800;color:var(--color-on-surface);
+  box-shadow:0 1px 3px rgb(15 23 42 / 0.14)}
+
+/* ---------- OrdersView toolbar + TicketSearch ---------- */
+.toolbar{display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px}
+.search{display:flex;min-width:0;flex:1 1 20rem;flex-direction:column;gap:4px}
+.search-row{display:flex;gap:8px}
+.search-field{display:flex;min-height:56px;min-width:0;flex:1;align-items:center;gap:10px;border-radius:var(--radius-lg);
+  border:2px solid var(--color-outline);background:var(--color-surface-container-lowest);padding:0 14px;color:var(--color-on-surface-variant)}
+.search-field:has(input:focus-visible){outline:3px solid var(--color-focus);outline-offset:2px}
+.search-field input{min-width:0;flex:1;background:transparent;border:0;outline:none;font-size:17px;line-height:24px;
+  font-weight:600;font-variant-numeric:tabular-nums;color:var(--color-on-surface)}
+.search-field input::placeholder{color:var(--color-on-surface-variant)}
+.search-error{color:var(--color-error)}
+.notice{border-radius:var(--radius-xl);background:var(--color-success-container);padding:16px 20px;
+  font-size:17px;line-height:22px;font-weight:600;color:var(--color-on-success-container)}
+
+/* ---------- Month header (DayView header + DayChanger) ---------- */
+.month-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px}
+.changer{display:flex;flex-shrink:0;align-items:stretch;border-radius:var(--radius-lg);background:var(--color-surface-container-lowest);
+  box-shadow:0 0 0 1px var(--color-separator)}
+.changer button{display:flex;min-height:48px;align-items:center;justify-content:center;gap:2px;padding:0 16px;
+  font-size:17px;line-height:24px;font-weight:600;white-space:nowrap;color:var(--color-on-surface);transition:background-color .15s}
+.changer button:first-child{border-radius:var(--radius-lg) 0 0 var(--radius-lg)}
+.changer button:last-child{border-radius:0 var(--radius-lg) var(--radius-lg) 0}
+.changer button:hover{background:var(--color-fill)}
+.changer button:disabled{color:var(--color-outline)}
+.changer button:disabled:hover{background:transparent}
+.changer-divider{margin:10px 0;width:1px;background:var(--color-fill-strong)}
+.legend{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:0}
+
+/* ---------- Split: calendar beside the detail (@3xl:flex-row, gap-7) ---------- */
+.split{display:flex;align-items:flex-start;gap:28px}
+.cal{min-width:0;flex:1;overflow:hidden;border-radius:var(--radius-xl);background:var(--color-surface-container-lowest)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.weekday{padding:12px 8px 10px;text-align:left;border-bottom:1px solid var(--color-separator)}
+.day{display:flex;min-height:116px;min-width:0;flex-direction:column;gap:3px;padding:6px 4px 8px;
+  border-top:1px solid var(--color-separator);border-left:1px solid var(--color-separator)}
+.day:nth-child(7n+1){border-left:0}
+.cal-grid .day.first-row{border-top:0}
+.day.out{background:var(--color-surface-container-low)}
+.day-num{display:flex;align-items:center;justify-content:center;align-self:flex-start;min-width:30px;height:30px;padding:0 6px;
+  border-radius:999px;font-size:15px;line-height:20px;font-weight:700;font-variant-numeric:tabular-nums;
+  color:var(--color-on-surface);transition:background-color .15s}
+.day-num:hover{background:var(--color-fill)}
+.day.out .day-num{color:var(--color-outline);font-weight:600}
+.day.today .day-num{background:var(--color-now);color:#fff;font-weight:800}
+.day-state{display:flex;align-items:center;gap:3px;padding:0 4px;font-size:12px;line-height:18px;font-weight:700;color:var(--color-on-surface-variant)}
+
+/* Chip: OrderRows' StatusChip (rounded-full, label-lg extrabold), sized down for the grid. */
+.chip{display:flex;align-items:center;gap:2px;width:100%;min-width:0;border-radius:999px;padding:2px 7px;text-align:left;
+  font-size:12px;line-height:17px;letter-spacing:0;font-weight:800;white-space:nowrap;transition:filter .15s}
+.chip-text{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.chip .icon{width:14px;height:14px;margin-left:-2px}
+.legend .chip{width:auto;padding:4px 10px;font-size:14px;line-height:18px;letter-spacing:.01em}
+.legend .chip .icon{width:16px;height:16px}
+.chip:hover{filter:brightness(.97)}
+.chip-appt{background:var(--color-appt);color:var(--color-on-appt)}
+.chip-order{background:var(--color-secondary-container);color:var(--color-on-secondary-fixed)}
+.chip-ready{background:var(--color-success-container);color:var(--color-on-success-container)}
+.chip-done{background:var(--color-fill);color:var(--color-on-surface)}
+.chip[aria-current=true]{box-shadow:inset 0 0 0 2px var(--color-primary)}
+.more{align-self:flex-start;border-radius:999px;padding:2px 8px;font-size:12px;line-height:17px;font-weight:800;
+  color:var(--color-on-surface-variant)}
+.more:hover{background:var(--color-fill)}
+
+/* ---------- Detail (AppointmentDetail / OrderDetail) ---------- */
+.detail{display:flex;width:360px;flex-shrink:0;min-width:0;flex-direction:column;gap:16px}
+.hint{border-radius:var(--radius-xl);background:var(--color-surface-container-lowest);padding:24px;color:var(--color-on-surface-variant)}
+.card{display:flex;flex-direction:column;border-radius:22px;background:var(--color-surface-container-lowest);padding:24px;box-shadow:var(--shadow-card)}
+.gap-16{gap:16px}.gap-20{gap:20px}
+.stack{display:flex;flex-direction:column}
+.ticket{align-self:flex-start;border-radius:var(--radius-lg);background:var(--color-fill);padding:4px 10px;
+  font-size:15px;line-height:20px;font-weight:800;letter-spacing:.025em;font-variant-numeric:tabular-nums}
+.facts-appt{display:flex;flex-direction:column;border-radius:var(--radius-lg);background:var(--color-background)}
+.facts-appt .fact-work{display:flex;flex-direction:column;gap:2px;padding:12px 16px}
+.facts-appt .fact{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-top:1px solid var(--color-separator);padding:12px 16px}
+.facts-appt .fact dt{font-size:15px;line-height:20px;font-weight:600}
+.facts-appt dd,.facts-order dd{font-size:17px;line-height:22px;font-weight:800;font-variant-numeric:tabular-nums}
+.facts-order{display:flex;flex-direction:column;border-radius:var(--radius-xl);background:var(--color-surface-container-lowest)}
+.facts-order .fact{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-top:1px solid var(--color-separator);padding:14px 20px}
+.facts-order .fact:first-child{border-top:0}
+.facts-order dt{font-size:17px;line-height:24px;font-weight:500}
+.facts-order dd{text-align:right}
+.progress{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.progress li{display:flex;flex-direction:column;gap:6px}
+.bar{height:6px;border-radius:999px;background:var(--color-outline-variant)}
+.bar.on{background:var(--color-primary)}
+.step-label{font-size:14px;line-height:18px;letter-spacing:.01em;font-weight:500;color:var(--color-on-surface-variant)}
+.step-label.current{font-weight:800;color:var(--color-on-surface)}
+.row-actions{display:flex;flex-wrap:wrap;gap:10px}
+.row-actions .btn{flex:1 1 auto}
+.confirm{display:flex;flex-direction:column;gap:8px;border-radius:var(--radius-xl);padding:16px}
+.confirm-danger{background:var(--color-error-container);color:var(--color-on-error-container)}
+.confirm-neutral{background:var(--color-surface-container);color:var(--color-on-surface)}
+.confirm-buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.confirm-buttons .btn{white-space:normal;text-align:center;padding:0 12px}
+
+.mt-8{margin-top:8px}.mt-12{margin-top:12px}.mt-16{margin-top:16px}.mt-24{margin-top:24px}
+
+/* Below the split width the detail is its own block under the calendar. */
+@media (max-width:1180px){
+  .split{flex-direction:column;align-items:stretch}
+  .detail{width:auto}
+}
+@media (max-width:767px){
+  .shell-aside{display:none}
+  main{margin-left:0}
+  .page{padding:24px 16px}
+  .t-display{font-size:34px;line-height:38px;letter-spacing:-.02em}
+  .day{min-height:76px}
+  .chip{font-size:0;height:6px;padding:0}
+}
+</style>
+</head>
+<body>
+<!-- Material Symbols Outlined glyphs (weight 400, 24px grid), drawn inline: no remote font. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-content_cut" viewBox="0 -960 960 960"><path d="M760-120 480-400l-94 94q8 15 11 32t3 34q0 66-47 113T240-80q-66 0-113-47T80-240q0-66 47-113t113-47q18 0 34 3t32 11l94-94-94-94q-15 8-32 11t-34 3q-66 0-113-47T80-720q0-66 47-113t113-47q66 0 113 47t47 113q0 18-3 34t-11 32l494 494v40H760ZM600-520l-80-80 240-240h120v40L600-520ZM240-640q33 0 56.5-23.5T320-720q0-33-23.5-56.5T240-800q-33 0-56.5 23.5T160-720q0 33 23.5 56.5T240-640Zm240 180q8 0 14-6t6-14q0-8-6-14t-14-6q-8 0-14 6t-6 14q0 8 6 14t14 6ZM240-160q33 0 56.5-23.5T320-240q0-33-23.5-56.5T240-320q-33 0-56.5 23.5T160-240q0 33 23.5 56.5T240-160Z"/></symbol>
+    <symbol id="i-calendar_month_fill" viewBox="0 -960 960 960"><path fill-rule="evenodd" d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80H200Zm0-480v400h560v-400H200Zm280 160q-17 0-28.5-11.5T440-440q0-17 11.5-28.5T480-480q17 0 28.5 11.5T520-440q0 17-11.5 28.5T480-400Zm-160 0q-17 0-28.5-11.5T280-440q0-17 11.5-28.5T320-480q17 0 28.5 11.5T360-440q0 17-11.5 28.5T320-400Zm320 0q-17 0-28.5-11.5T600-440q0-17 11.5-28.5T640-480q17 0 28.5 11.5T680-440q0 17-11.5 28.5T640-400ZM480-240q-17 0-28.5-11.5T440-280q0-17 11.5-28.5T480-320q17 0 28.5 11.5T520-280q0 17-11.5 28.5T480-240Zm-160 0q-17 0-28.5-11.5T280-280q0-17 11.5-28.5T320-320q17 0 28.5 11.5T360-280q0 17-11.5 28.5T320-240Zm320 0q-17 0-28.5-11.5T600-280q0-17 11.5-28.5T640-320q17 0 28.5 11.5T680-280q0 17-11.5 28.5T640-240Z"/></symbol>
+    <symbol id="i-sell" viewBox="0 -960 960 960"><path d="M856-390 570-104q-12 12-27 18t-30 6q-15 0-30-6t-27-18L103-457q-11-11-17-25.5T80-513v-287q0-33 23.5-56.5T160-880h287q16 0 31 6.5t26 17.5l352 353q12 12 17.5 27t5.5 30q0 15-5.5 29.5T856-390ZM513-160l286-286-353-354H160v286l353 354ZM260-640q25 0 42.5-17.5T320-700q0-25-17.5-42.5T260-760q-25 0-42.5 17.5T200-700q0 25 17.5 42.5T260-640Z"/></symbol>
+    <symbol id="i-group" viewBox="0 -960 960 960"><path d="M40-160v-112q0-34 17.5-62.5T104-378q62-31 126-46.5T360-440q66 0 130 15.5T616-378q29 15 46.5 43.5T680-272v112H40Zm720 0v-120q0-44-24.5-84.5T666-434q51 6 96 20.5t84 35.5q36 20 55 44.5t19 53.5v120H760ZM360-480q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47Zm400-160q0 66-47 113t-113 47q-11 0-28-2.5t-28-5.5q27-32 41.5-71t14.5-81q0-42-14.5-81T544-792q14-5 28-6.5t28-1.5q66 0 113 47t47 113ZM120-240h480v-32q0-11-5.5-20T580-306q-54-27-109-40.5T360-360q-56 0-111 13.5T140-306q-9 5-14.5 14t-5.5 20v32Zm240-320q33 0 56.5-23.5T440-640q0-33-23.5-56.5T360-720q-33 0-56.5 23.5T280-640q0 33 23.5 56.5T360-560Z"/></symbol>
+    <symbol id="i-logout" viewBox="0 -960 960 960"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h280v80H200v560h280v80H200Zm440-160-55-58 102-102H360v-80h327L585-622l55-58 200 200-200 200Z"/></symbol>
+    <symbol id="i-schedule" viewBox="0 -960 960 960"><path d="m612-292 56-56-148-148v-184h-80v216l172 172ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q133 0 226.5-93.5T800-480q0-133-93.5-226.5T480-800q-133 0-226.5 93.5T160-480q0 133 93.5 226.5T480-160Z"/></symbol>
+    <symbol id="i-add" viewBox="0 -960 960 960"><path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z"/></symbol>
+    <symbol id="i-search" viewBox="0 -960 960 960"><path d="M784-120 532-372q-30 24-69 38t-83 14q-109 0-184.5-75.5T120-580q0-109 75.5-184.5T380-840q109 0 184.5 75.5T640-580q0 44-14 83t-38 69l252 252-56 56ZM380-400q75 0 127.5-52.5T560-580q0-75-52.5-127.5T380-760q-75 0-127.5 52.5T200-580q0 75 52.5 127.5T380-400Z"/></symbol>
+    <symbol id="i-chevron_left" viewBox="0 -960 960 960"><path d="M560-240 320-480l240-240 56 56-184 184 184 184-56 56Z"/></symbol>
+    <symbol id="i-chevron_right" viewBox="0 -960 960 960"><path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z"/></symbol>
+    <symbol id="i-lock" viewBox="0 -960 960 960"><path d="M240-80q-33 0-56.5-23.5T160-160v-400q0-33 23.5-56.5T240-640h40v-80q0-83 58.5-141.5T480-920q83 0 141.5 58.5T680-720v80h40q33 0 56.5 23.5T800-560v400q0 33-23.5 56.5T720-80H240Zm0-80h480v-400H240v400Zm240-120q33 0 56.5-23.5T560-360q0-33-23.5-56.5T480-440q-33 0-56.5 23.5T400-360q0 33 23.5 56.5T480-280ZM360-640h240v-80q0-50-35-85t-85-35q-50 0-85 35t-35 85v80Z"/></symbol>
+    <symbol id="i-chat" viewBox="0 -960 960 960"><path d="M240-400h320v-80H240v80Zm0-120h480v-80H240v80Zm0-120h480v-80H240v80ZM80-80v-720q0-33 23.5-56.5T160-880h640q33 0 56.5 23.5T880-800v480q0 33-23.5 56.5T800-240H240L80-80Zm126-240h594v-480H160v525l46-45Z"/></symbol>
+    <symbol id="i-event_busy" viewBox="0 -960 960 960"><path d="m388-212-56-56 92-92-92-92 56-56 92 92 92-92 56 56-92 92 92 92-56 56-92-92-92 92ZM200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80H200Zm0-80h560v-400H200v400Zm0-480h560v-80H200v80Z"/></symbol>
+    <symbol id="i-checkroom" viewBox="0 -960 960 960"><path d="M40-120v-80l400-300v-27q0-14 9.5-23.5T473-560q25 0 42-17.5t17-42.5q0-25-17.5-42.5T472-680q-25 0-42.5 17.5T412-620h-80q0-58 41-99t99-41q58 0 99 40.5t41 98.5q0 47-27.5 84T520-486v-14l400 300v80H40Zm120-80h640L480-440 160-200Z"/></symbol>
+    <symbol id="i-check" viewBox="0 -960 960 960"><path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z"/></symbol>
+    <symbol id="i-undo" viewBox="0 -960 960 960"><path d="M280-200v-80h284q63 0 109.5-40T720-420q0-60-46.5-100T564-560H312l104 104-56 56-200-200 200-200 56 56-104 104h252q97 0 166.5 63T800-420q0 94-69.5 157T564-200H280Z"/></symbol>
+    <symbol id="i-close" viewBox="0 -960 960 960"><path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></symbol>
+  </defs>
+</svg>
+
+<div class="shell">
+  <!-- AdminShell: sidebar with BrandMark, navigation (3 sections) and identity. -->
+  <aside class="shell-aside">
+    <div class="brand">
+      <span class="brand-glyph"><svg class="icon" aria-hidden="true"><use href="#i-content_cut"/></svg></span>
+      <span class="t-label-tech variant">Costurando a la medida</span>
+    </div>
+    <nav class="nav" aria-label="Navegación del panel">
+      <a href="#/agenda" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-calendar_month_fill"/></svg>Agenda</a>
+      <a href="#/catalogo"><svg class="icon" aria-hidden="true"><use href="#i-sell"/></svg>Catálogo</a>
+      <a href="#/clientes"><svg class="icon" aria-hidden="true"><use href="#i-group"/></svg>Clientes</a>
+    </nav>
+    <div class="identity">
+      <div class="identity-row">
+        <span class="avatar" aria-hidden="true">A</span>
+        <span class="t-title-md" style="font-weight:700">Administradora</span>
+      </div>
+      <button type="button" class="btn btn-secondary"><svg class="icon" aria-hidden="true"><use href="#i-logout"/></svg>Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <main>
+    <!-- PageFrame -->
+    <section class="page" aria-labelledby="page-title">
+      <div class="page-head">
+        <h1 id="page-title" class="t-display">Agenda</h1>
+        <div class="page-actions">
+          <button type="button" class="btn btn-secondary"><svg class="icon" aria-hidden="true"><use href="#i-schedule"/></svg>Mi horario</button>
+          <button type="button" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-add"/></svg>Nuevo pedido</button>
+        </div>
+      </div>
+
+      <!-- OrdersView: counts line, then the filters and the ticket search. -->
+      <p id="counts" class="t-body-md variant mt-24" style="font-weight:700"></p>
+      <div class="toolbar mt-16">
+        <div class="seg" role="group" aria-label="Vista" id="seg-view">
+          <button type="button" data-value="month" aria-pressed="true">Mes</button>
+          <button type="button" data-value="week" aria-pressed="false">Semana</button>
+          <button type="button" data-value="day" aria-pressed="false">Día</button>
+        </div>
+        <div class="seg" role="group" aria-label="Qué ver" id="seg-what">
+          <button type="button" data-value="all" aria-pressed="true">Todo</button>
+          <button type="button" data-value="appt" aria-pressed="false">Citas</button>
+          <button type="button" data-value="order" aria-pressed="false">Pedidos</button>
+        </div>
+        <div class="seg" role="group" aria-label="Qué pedidos ver" id="seg-orders" hidden>
+          <button type="button" data-value="workshop" aria-pressed="true">En el taller</button>
+          <button type="button" data-value="finished" aria-pressed="false">Terminados</button>
+        </div>
+        <form class="search" role="search" id="search" novalidate>
+          <div class="search-row">
+            <label class="search-field">
+              <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+              <span class="sr-only">Buscar por ticket</span>
+              <input id="ticket" inputmode="numeric" maxlength="4" placeholder="Ticket de 4 números" autocomplete="off">
+            </label>
+            <button type="submit" class="btn btn-secondary">Buscar</button>
+          </div>
+          <p id="search-error" class="search-error" hidden></p>
+        </form>
+      </div>
+
+      <p id="notice" role="status" class="sr-only"></p>
+
+      <!-- DayView header: the title beside the changer. -->
+      <div class="month-head mt-24">
+        <h2 id="month-title" class="t-headline-lg">Octubre 2026</h2>
+        <div class="changer" role="group" aria-label="Cambiar de mes">
+          <button type="button" id="prev-month"><svg class="icon" aria-hidden="true"><use href="#i-chevron_left"/></svg>Mes anterior</button>
+          <span class="changer-divider" aria-hidden="true"></span>
+          <button type="button" id="this-month" disabled>Hoy</button>
+          <span class="changer-divider" aria-hidden="true"></span>
+          <button type="button" id="next-month">Mes siguiente<svg class="icon" aria-hidden="true"><use href="#i-chevron_right"/></svg></button>
+        </div>
+      </div>
+      <ul class="legend mt-12" aria-label="Qué significa cada color" id="legend" style="list-style:none;margin-bottom:0"></ul>
+
+      <div class="split mt-16">
+        <section class="cal" aria-labelledby="month-title">
+          <div class="cal-grid" id="weekdays" aria-hidden="true"></div>
+          <div class="cal-grid" id="grid"></div>
+        </section>
+        <section class="detail" id="detail" aria-label="Detalle"></section>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+// ---------- Data: October 2026, today Saturday 24 at 11:05 (Cancún). ----------
+const TODAY = '2026-10-24';
+const NOW_TIME = '11:05';
+const BLOCKED = ['2026-10-12'];
+
+const appointments = [
+  {id:'a1', date:'2026-10-05', time:'10:00', clientName:'Lucía Gómez',  ticket:'4512', services:['Ajuste de cintura'],            quote:180, whatsapp:'9981234567'},
+  {id:'a2', date:'2026-10-14', time:'11:30', clientName:'Elena Díaz',   ticket:'4602', services:['Dobladillo de falda'],          quote:150, whatsapp:'9987654321'},
+  {id:'a3', date:'2026-10-24', time:'10:30', clientName:'Ana Martínez', ticket:'4821', services:['Ajuste de vestido de fiesta'],  quote:450, whatsapp:'9981112233'},
+  {id:'a4', date:'2026-10-24', time:'12:00', clientName:'Juan Pérez',   ticket:'4830', services:['Bastilla de pantalón'],         quote:120, whatsapp:'9984445566'},
+  {id:'a5', date:'2026-10-24', time:'16:30', clientName:'Elena Díaz',   ticket:'4841', services:['Dobladillo de falda'],          quote:150},
+  {id:'a6', date:'2026-10-27', time:'09:30', clientName:'Lucía Gómez',  ticket:'4855', services:['Ajuste de cintura'],            quote:180, whatsapp:'9981234567'},
+  {id:'a7', date:'2026-10-30', time:'13:00', clientName:'Carlos Ruiz',  ticket:'4870', services:['Ajuste de saco', 'Cambio de botones'], quote:390, whatsapp:'9983332211'},
+];
+const orders = [
+  {id:'o1', deliveryDate:'2026-10-06', status:'delivered',  clientName:'Juan Pérez',   ticket:'3390', work:'Parche',                        price:90,   whatsapp:'9984445566'},
+  {id:'o2', deliveryDate:'2026-10-16', status:'cancelled',  clientName:'María López',  ticket:'2210', work:'Cambio de cierre de chamarra',  price:220},
+  {id:'o3', deliveryDate:'2026-10-24', status:'ready',      clientName:'Carlos Ruiz',  ticket:'7720', work:'Ajuste de saco',                price:350,  whatsapp:'9983332211'},
+  {id:'o4', deliveryDate:'2026-10-26', status:'inProgress', clientName:'María López',  ticket:'6105', work:'Ajuste de vestido de novia',    price:1800, whatsapp:'9985556677'},
+  {id:'o5', deliveryDate:'2026-10-28', status:'received',   clientName:'Juan Pérez',   ticket:'7741', work:'Bastilla de pantalón',          price:120,  whatsapp:'9984445566'},
+  {id:'o6', deliveryDate:'2026-10-28', status:'onTheWay',   clientName:'Ana Martínez', ticket:'7702', work:'Cambio de cierre de chamarra',  price:220,  whatsapp:'9981112233'},
+];
+
+// ---------- Labels: src/orders/ui/order-labels.ts ----------
+const ORDER_STEPS = ['received','inProgress','ready','delivered'];
+const STEP_LABELS = {received:'Recibido', inProgress:'En proceso', ready:'Listo', delivered:'Entregado'};
+const STATUS_LABELS = {received:'Recibido', inProgress:'En proceso', ready:'Listo para recoger', onTheWay:'Cliente en camino', delivered:'Entregado', cancelled:'Cancelado'};
+const ACTIONS_TO_REACH = {received:'Marcar como recibido', inProgress:'Empezar a trabajar', ready:'Marcar como listo', delivered:'Marcar como entregado'};
+
+// ---------- Domain helpers: src/orders/domain/order.ts ----------
+const isActive = (o) => o.status !== 'delivered' && o.status !== 'cancelled';
+const isReadyForPickup = (o) => o.status === 'ready' || o.status === 'onTheWay';
+const stepOf = (s) => s === 'onTheWay' ? 'ready' : s;
+function nextStatus(s){ if (s === 'cancelled') return undefined; return ORDER_STEPS[ORDER_STEPS.indexOf(stepOf(s)) + 1]; }
+function previousStatus(s){
+  if (s === 'cancelled' || s === 'delivered') return undefined;
+  if (s === 'onTheWay') return 'ready';
+  return ORDER_STEPS[ORDER_STEPS.indexOf(s) - 1];
+}
+
+// ---------- Format: src/shared/ui/format.ts ----------
+const WEEKDAYS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const PESOS = new Intl.NumberFormat('es-MX', {style:'currency', currency:'MXN', maximumFractionDigits:0});
+const formatPesos = (n) => `${PESOS.format(n)} MXN`;
+const capitalize = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+const utc = (iso) => new Date(iso + 'T00:00:00Z');
+function formatLongDate(iso){ const d = utc(iso); return `${WEEKDAYS[d.getUTCDay()]} ${d.getUTCDate()} de ${MONTHS[d.getUTCMonth()]}`; }
+const formatDayLabel = (iso) => iso === TODAY ? `Hoy, ${formatLongDate(iso)}` : capitalize(formatLongDate(iso));
+const formatWhatsapp = (n) => `${n.slice(0,3)} ${n.slice(3,6)} ${n.slice(6)}`;
+const formatCount = (c, one, many) => `${c} ${c === 1 ? one : many}`;
+const iso = (y, m, d) => `${y}-${String(m + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const icon = (name, cls = '') => `<svg class="icon ${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+
+// ---------- State ----------
+const state = {year:2026, month:9, what:'all', ordersFilter:'workshop', chosen:undefined, confirming:undefined, expanded:undefined};
+
+function calendarEntries(){
+  const entries = [];
+  if (state.what !== 'order') {
+    appointments.forEach((a) => entries.push({kind:'appt', id:a.id, date:a.date, sort:'0' + a.time, item:a}));
+  }
+  if (state.what !== 'appt') {
+    orders.forEach((o) => {
+      const wanted = state.what === 'all' ? isActive(o) : (state.ordersFilter === 'finished' ? !isActive(o) : isActive(o));
+      if (wanted) entries.push({kind:'order', id:o.id, date:o.deliveryDate, sort:'1' + o.ticket, item:o});
+    });
+  }
+  return entries.sort((x, y) => x.sort.localeCompare(y.sort));
+}
+
+function chipClass(e){
+  if (e.kind === 'appt') return 'chip-appt';
+  if (!isActive(e.item)) return 'chip-done';
+  return isReadyForPickup(e.item) ? 'chip-ready' : 'chip-order';
+}
+// The type is in the chip, not only in its color: a cita starts with its time, a
+// delivery with the order glyph and its ticket. The full words are in title and aria-label.
+function chipText(e){
+  const i = e.item;
+  if (e.kind === 'appt') return `${i.time} ${i.clientName}`;
+  return `${i.ticket} ${i.clientName}`;
+}
+function chipTitle(e){
+  const i = e.item;
+  if (e.kind === 'appt') return `Cita ${i.time} · ${i.clientName}`;
+  return `Entrega ${i.ticket} · ${i.clientName} · ${STATUS_LABELS[i.status]}`;
+}
+function chipLabel(e){
+  const i = e.item;
+  if (e.kind === 'appt') return `Cita por recibir, ${i.time}, ${i.clientName}, ticket ${i.ticket}`;
+  return `Entrega del pedido ${i.ticket}, ${i.clientName}, ${STATUS_LABELS[i.status]}`;
+}
+
+// ---------- Counts line (OrdersView workshopSummary) ----------
+function renderCounts(){
+  const inWorkshop = orders.filter(isActive);
+  const ready = inWorkshop.filter(isReadyForPickup).length;
+  let summary = `${inWorkshop.length} en el taller`;
+  if (ready > 0) summary += ` · ${formatCount(ready, 'listo para recoger', 'listos para recoger')}`;
+  document.getElementById('counts').textContent = summary;
+}
+
+// ---------- Legend ----------
+function renderLegend(){
+  const rows = [];
+  if (state.what !== 'order') rows.push(['chip-appt', '', 'Cita por recibir']);
+  const showActive = state.what === 'all' || (state.what === 'order' && state.ordersFilter === 'workshop');
+  if (showActive) {
+    rows.push(['chip-order', icon('checkroom'), 'Entrega de pedido']);
+    rows.push(['chip-ready', icon('checkroom'), 'Listo para recoger o cliente en camino']);
+  }
+  if (state.what === 'order' && state.ordersFilter === 'finished') rows.push(['chip-done', icon('checkroom'), 'Pedido terminado']);
+  document.getElementById('legend').innerHTML = rows.map(([cls, glyph, label]) =>
+    `<li><span class="chip ${cls}">${glyph}<span class="chip-text">${label}</span></span></li>`
+  ).join('');
+}
+
+// ---------- Month grid (Monday first) ----------
+function renderWeekdays(){
+  document.getElementById('weekdays').innerHTML = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
+    .map((d) => `<div class="weekday t-label-lg variant">${d}</div>`).join('');
+}
+
+function renderGrid(){
+  const {year, month} = state;
+  const title = `${capitalize(MONTHS[month])} ${year}`;
+  document.getElementById('month-title').textContent = title;
+  const isCurrentMonth = TODAY.startsWith(iso(year, month, 1).slice(0, 7));
+  document.getElementById('this-month').disabled = isCurrentMonth;
+
+  const first = new Date(Date.UTC(year, month, 1));
+  const lead = (first.getUTCDay() + 6) % 7;
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const total = Math.ceil((lead + daysInMonth) / 7) * 7;
+  const entries = calendarEntries();
+
+  let html = '';
+  for (let i = 0; i < total; i++) {
+    const d = new Date(Date.UTC(year, month, 1 - lead + i));
+    const date = d.toISOString().slice(0, 10);
+    const out = d.getUTCMonth() !== month;
+    const isToday = date === TODAY;
+    const isSunday = d.getUTCDay() === 0;
+    const isBlocked = BLOCKED.includes(date);
+    const classes = ['day', out ? 'out' : '', isToday ? 'today' : '', i < 7 ? 'first-row' : ''].join(' ');
+    const longDate = formatLongDate(date);
+    let cell = `<div class="${classes}" role="group" aria-label="${capitalize(longDate)}">`;
+    cell += `<button type="button" class="day-num" data-day="${date}" aria-label="Abrir el ${longDate}${isToday ? ', hoy' : ''}">${d.getUTCDate()}</button>`;
+    if (isBlocked) cell += `<span class="day-state">${icon('lock', 'icon-sm')}Bloqueado</span>`;
+    else if (isSunday) cell += `<span class="day-state">Cerrado</span>`;
+    if (!out) {
+      const dayEntries = entries.filter((e) => e.date === date);
+      // A chosen entry past the third one keeps its day open, so the chip stays in sight.
+      const isOpen = state.expanded === date || dayEntries.slice(3).some((e) => e.id === state.chosen);
+      const shown = isOpen ? dayEntries : dayEntries.slice(0, 3);
+      shown.forEach((e) => {
+        const isChosen = state.chosen === e.id;
+        const glyph = e.kind === 'order' ? icon('checkroom') : '';
+        cell += `<button type="button" class="chip ${chipClass(e)}" data-id="${e.id}" title="${esc(chipTitle(e))}" aria-label="${esc(chipLabel(e))}"${isChosen ? ' aria-current="true"' : ''}>${glyph}<span class="chip-text">${esc(chipText(e))}</span></button>`;
+      });
+      if (dayEntries.length > 3 && !isOpen) {
+        cell += `<button type="button" class="more" data-more="${date}" aria-label="Ver ${dayEntries.length - 3} más del ${longDate}">${dayEntries.length - 3} más</button>`;
+      }
+    }
+    cell += '</div>';
+    html += cell;
+  }
+  document.getElementById('grid').innerHTML = html;
+}
+
+// ---------- Detail panel ----------
+function findChosen(){
+  const visible = calendarEntries().find((e) => e.id === state.chosen);
+  return visible;
+}
+
+function hasStarted(a){ return a.date < TODAY || (a.date === TODAY && a.time <= NOW_TIME); }
+
+function confirmPanel(tone, question, confirmLabel, keepLabel){
+  const confirmVariant = tone === 'neutral' ? 'btn-primary' : 'btn-danger';
+  return `<div class="confirm confirm-${tone}">
+    <p class="t-title-md">${esc(question)}</p>
+    <div class="confirm-buttons">
+      <button type="button" class="btn ${confirmVariant}" data-act="confirm">${confirmLabel}</button>
+      <button type="button" class="btn btn-secondary" data-act="keep">${keepLabel}</button>
+    </div></div>`;
+}
+
+// src/agenda/ui/day/AppointmentDetail.tsx
+function appointmentDetail(a){
+  const canChange = !hasStarted(a);
+  const reminder = canChange && a.whatsapp
+    ? `<a class="btn btn-primary" href="#" data-act="remind">${icon('chat')}Recordar por WhatsApp</a>` : '';
+  const cancel = !canChange ? '' : state.confirming === 'cancel-appt'
+    ? confirmPanel('danger', `¿Cancelar la cita de ${a.clientName} a las ${a.time}?`, 'Sí, cancelar la cita', 'No, dejarla')
+    : `<button type="button" class="btn btn-subtle-danger" data-act="ask-cancel-appt">${icon('event_busy')}Cancelar cita</button>`;
+  return `
+    <div class="card gap-16">
+      <div class="stack" style="gap:6px">
+        <p class="t-body-md variant" style="font-weight:700">Cita de las ${a.time}</p>
+        <h3 class="t-headline-lg">${esc(a.clientName)}</h3>
+        <span class="ticket" style="margin-top:4px">Ticket ${a.ticket}</span>
+      </div>
+      <dl class="facts-appt">
+        <div class="fact-work"><dt class="t-label-lg variant">Trabajo</dt><dd class="t-title-md" style="font-weight:600">${esc(a.services.join(', '))}</dd></div>
+        <div class="fact"><dt>Cotización preliminar</dt><dd>${formatPesos(a.quote)}</dd></div>
+        <div class="fact"><dt>WhatsApp</dt><dd>${a.whatsapp ? formatWhatsapp(a.whatsapp) : 'No dejó número'}</dd></div>
+      </dl>
+      ${reminder}
+    </div>
+    ${cancel}`;
+}
+
+// src/orders/ui/list/OrderDetail.tsx
+function orderDetail(o){
+  const active = isActive(o);
+  let progress = '';
+  if (o.status !== 'cancelled') {
+    const current = ORDER_STEPS.indexOf(stepOf(o.status));
+    progress = `<ol class="progress" aria-label="Avance del pedido">${ORDER_STEPS.map((s, i) =>
+      `<li${i === current ? ' aria-current="step"' : ''}><span class="bar${i <= current ? ' on' : ''}" aria-hidden="true"></span><span class="step-label${i === current ? ' current' : ''}">${STEP_LABELS[s]}</span></li>`
+    ).join('')}</ol>`;
+  }
+  let forward = '';
+  const next = active ? nextStatus(o.status) : undefined;
+  if (next) {
+    if (state.confirming === 'deliver') {
+      forward = confirmPanel('neutral', `¿Entregar el pedido de ${o.clientName}?`, 'Sí, entregar el pedido', 'No, todavía no');
+    } else {
+      let notice = '';
+      if (o.status === 'ready') {
+        notice = o.whatsapp
+          ? `<a class="btn btn-secondary" href="#" data-act="notify">${icon('chat')}Avisar por WhatsApp</a>`
+          : `<p class="t-body-md variant" style="text-align:center;font-weight:600">No dejó WhatsApp para avisarle.</p>`;
+      }
+      forward = `<div class="stack" style="gap:8px"><button type="button" class="btn btn-primary" data-act="forward">${icon('check')}${ACTIONS_TO_REACH[next]}</button>${notice}</div>`;
+    }
+  }
+  let back = '';
+  if (active) {
+    const previous = previousStatus(o.status);
+    back = state.confirming === 'cancel-order'
+      ? confirmPanel('danger', `¿Cancelar el pedido de ${o.clientName}?`, 'Sí, cancelar el pedido', 'No, seguir con el pedido')
+      : `<div class="row-actions">
+          ${previous ? `<button type="button" class="btn btn-secondary" data-act="back">${icon('undo')}Regresar a ${STEP_LABELS[previous]}</button>` : ''}
+          <button type="button" class="btn btn-subtle-danger" data-act="ask-cancel-order">${icon('close')}Cancelar pedido</button>
+        </div>`;
+  }
+  return `
+    <div class="card gap-20">
+      <div class="stack" style="gap:6px">
+        <span class="ticket">Ticket ${o.ticket}</span>
+        <h3 class="t-headline-lg" style="margin-top:4px">${esc(o.clientName)}</h3>
+        <p class="t-body-md variant" style="font-weight:600">${esc(o.work)}</p>
+        <p class="t-headline-md" style="margin-top:8px">${STATUS_LABELS[o.status]}</p>
+      </div>
+      ${progress}
+      ${forward}
+    </div>
+    <dl class="facts-order">
+      <div class="fact"><dt>Entrega</dt><dd>${formatDayLabel(o.deliveryDate)}</dd></div>
+      <div class="fact"><dt>Total, se paga en el taller</dt><dd>${formatPesos(o.price)}</dd></div>
+    </dl>
+    ${back}`;
+}
+
+function renderDetail(){
+  const panel = document.getElementById('detail');
+  const entry = findChosen();
+  if (!entry) {
+    panel.setAttribute('aria-label', 'Detalle');
+    panel.innerHTML = `<p class="hint">Elige una cita o un pedido del calendario para ver su detalle.</p>`;
+    return;
+  }
+  panel.setAttribute('aria-label', entry.kind === 'appt' ? 'Detalle de la cita' : 'Detalle del pedido');
+  panel.innerHTML = entry.kind === 'appt' ? appointmentDetail(entry.item) : orderDetail(entry.item);
+}
+
+function render(){
+  renderCounts();
+  renderLegend();
+  renderGrid();
+  renderDetail();
+}
+
+// ---------- Notice (OrdersView FinishedNotice) ----------
+function showNotice(text){
+  const el = document.getElementById('notice');
+  el.className = text ? 'notice mt-16' : 'sr-only';
+  el.textContent = text || '';
+}
+
+// ---------- Events ----------
+function choose(id){
+  state.chosen = id;
+  state.confirming = undefined;
+  showNotice();
+  render();
+  const chip = document.querySelector(`.chip[data-id="${id}"]`);
+  if (chip) chip.focus();
+}
+
+document.getElementById('grid').addEventListener('click', (event) => {
+  const chip = event.target.closest('.chip');
+  if (chip) return choose(chip.dataset.id);
+  // "N más" opens the rest of that day in place.
+  const more = event.target.closest('.more');
+  if (more) {
+    const date = more.dataset.more;
+    state.expanded = date;
+    render();
+    const fourth = document.querySelectorAll(`.day-num[data-day="${date}"] ~ .chip`)[3];
+    if (fourth) fourth.focus();
+  }
+});
+
+function moveOrder(o, status){
+  o.status = status;
+  state.confirming = undefined;
+  if (!isActive(o)) {
+    state.chosen = undefined;
+    showNotice(`Pedido de ${o.clientName} ${status === 'delivered' ? 'entregado' : 'cancelado'}. Lo encuentras en Terminados.`);
+  }
+  render();
+}
+
+document.getElementById('detail').addEventListener('click', (event) => {
+  const target = event.target.closest('[data-act]');
+  if (!target) return;
+  const entry = findChosen();
+  if (!entry) return;
+  const act = target.dataset.act;
+  const item = entry.item;
+  if (act === 'remind' || act === 'notify') { event.preventDefault(); return; }
+  if (act === 'ask-cancel-appt') state.confirming = 'cancel-appt';
+  else if (act === 'ask-cancel-order') state.confirming = 'cancel-order';
+  else if (act === 'keep') state.confirming = undefined;
+  else if (act === 'forward') {
+    const next = nextStatus(item.status);
+    if (next === 'delivered') state.confirming = 'deliver';
+    else return moveOrder(item, next);
+  }
+  else if (act === 'back') return moveOrder(item, previousStatus(item.status));
+  else if (act === 'confirm') {
+    if (state.confirming === 'cancel-appt') {
+      appointments.splice(appointments.indexOf(item), 1);
+      state.chosen = undefined;
+      state.confirming = undefined;
+    } else if (state.confirming === 'cancel-order') return moveOrder(item, 'cancelled');
+    else if (state.confirming === 'deliver') return moveOrder(item, 'delivered');
+  }
+  render();
+});
+
+function wireSegmented(id, onChange){
+  const group = document.getElementById(id);
+  group.addEventListener('click', (event) => {
+    const button = event.target.closest('button');
+    if (!button) return;
+    group.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
+    onChange(button.dataset.value);
+  });
+}
+// Mes is the only view drawn in this artboard; Semana and Día are the current screens.
+wireSegmented('seg-view', () => {});
+wireSegmented('seg-what', (value) => {
+  state.what = value;
+  document.getElementById('seg-orders').hidden = value !== 'order';
+  state.chosen = undefined; state.confirming = undefined; showNotice(); render();
+});
+wireSegmented('seg-orders', (value) => {
+  state.ordersFilter = value;
+  state.chosen = undefined; state.confirming = undefined; showNotice(); render();
+});
+
+document.getElementById('prev-month').addEventListener('click', () => {
+  state.month -= 1; if (state.month < 0) { state.month = 11; state.year -= 1; } render();
+});
+document.getElementById('next-month').addEventListener('click', () => {
+  state.month += 1; if (state.month > 11) { state.month = 0; state.year += 1; } render();
+});
+document.getElementById('this-month').addEventListener('click', () => {
+  state.year = 2026; state.month = 9; render();
+  document.getElementById('prev-month').focus();
+});
+
+// TicketSearch: four digits, then the order or appointment with that ticket opens.
+document.getElementById('search').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const ticket = document.getElementById('ticket').value.trim();
+  const error = document.getElementById('search-error');
+  if (!/^\d{4}$/.test(ticket)) { error.textContent = 'Escribe los 4 números del ticket'; error.hidden = false; return; }
+  const order = orders.find((o) => o.ticket === ticket);
+  const appt = appointments.find((a) => a.ticket === ticket);
+  const found = order || appt;
+  if (!found) { error.textContent = `No hay ningún pedido con el ticket ${ticket}`; error.hidden = false; return; }
+  error.hidden = true;
+  // Show everything so the found entry is on the calendar.
+  if (order && !isActive(order)) {
+    state.what = 'order'; state.ordersFilter = 'finished';
+  } else {
+    state.what = 'all';
+  }
+  document.querySelectorAll('#seg-what button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.value === state.what)));
+  document.querySelectorAll('#seg-orders button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.value === state.ordersFilter)));
+  document.getElementById('seg-orders').hidden = state.what !== 'order';
+  const date = order ? order.deliveryDate : appt.date;
+  state.year = Number(date.slice(0, 4)); state.month = Number(date.slice(5, 7)) - 1;
+  choose(found.id);
+});
+
+renderWeekdays();
+// Review shortcut: #cita or #pedido opens with that entry chosen.
+state.chosen = {'#cita':'a6', '#pedido':'o3'}[location.hash];
+render();
+</script>
+</body>
+</html>
