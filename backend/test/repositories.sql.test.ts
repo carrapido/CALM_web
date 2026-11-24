@@ -535,6 +535,105 @@ describe.skipIf(TEST_DATABASE_URL === undefined)('The SQL repositories on a thro
       expect(await clientApp.credentialsOf(ANA.phone)).toBeNull()
     })
   })
+
+  // What the retired RPCs and Edge Functions guaranteed, now on the backend's SQL
+  // (odd/tasks/app-movil-backend.md, L5).
+  describe('client app isolation and parity', () => {
+    const ANA_PHONE = '9980000001'
+
+    async function statusOfOrder(ticket: string): Promise<string | undefined> {
+      const { rows } = await pool.query<{ status: string }>('select status from orders where ticket = $1', [ticket])
+      return rows[0]?.status
+    }
+
+    async function ticketsOfClient(clientId: string): Promise<string[]> {
+      const { rows } = await pool.query<{ ticket: string }>(
+        'select ticket from appointments where client_id = $1 order by scheduled_date',
+        [clientId],
+      )
+      return rows.map((row) => row.ticket)
+    }
+
+    it('cancels only her appointment when another client has the same ticket', async () => {
+      const clientApp = clientAppRepository(pool)
+      await pool.query(
+        `insert into appointments (client_id, ticket, scheduled_date, scheduled_time, preliminary_total_mxn) values
+          (3, '4100', $1, '10:00', 80), (5, '4100', $2, '10:00', 80)`,
+        [await dayFromToday(10), await dayFromToday(11)],
+      )
+
+      expect(await clientApp.cancelAppointment('3', '4100')).toBe(true)
+      expect(await clientApp.cancelAppointment('3', '4100')).toBe(false)
+      expect(await ticketsOfClient('3')).toEqual(['0815'])
+      expect(await ticketsOfClient('5')).toEqual(['1503', '4100'])
+    })
+
+    it('refuses to mark another client\'s ready order on the way and leaves it ready', async () => {
+      const clientApp = clientAppRepository(pool)
+      await pool.query(
+        "insert into orders (client_id, ticket, work, final_price_mxn, delivery_date, status) values (3, '4200', 'Bastilla', 90, $1, 'ready')",
+        [await dayFromToday(2)],
+      )
+
+      expect(await clientApp.markOnMyWay('2', '4200')).toBe(false)
+      expect(await statusOfOrder('4200')).toBe('ready')
+      expect(await statusOfOrder('1290')).toBe('ready')
+      expect(await clientApp.markOnMyWay('3', '4200')).toBe(true)
+      expect(await statusOfOrder('4200')).toBe('onTheWay')
+    })
+
+    it('reads only the orders and appointments of the client asking', async () => {
+      const clientApp = clientAppRepository(pool)
+
+      const rosa = await clientApp.ordersOf('2')
+      const nobody = await clientApp.ordersOf('99')
+
+      expect(rosa.orders.map((order) => order.ticket)).toEqual(['3388', '1290'])
+      expect(rosa.appointments.map((appointment) => appointment.ticket)).toEqual(['3388'])
+      expect(nobody).toEqual({ orders: [], appointments: [] })
+    })
+
+    it('claims five NIP checks with claim_nip_attempt, locks the sixth for 15 minutes, and only that phone', async () => {
+      const claims: boolean[] = []
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const { rows } = await pool.query<{ allowed: boolean }>('select claim_nip_attempt($1) as allowed', [ANA_PHONE])
+        claims.push(rows[0]?.allowed ?? true)
+      }
+
+      expect(claims).toEqual([true, true, true, true, true, false])
+      const { rows: lock } = await pool.query<{ failures: number; minutes: number }>(
+        "select failures, extract(epoch from locked_until - now()) / 60 as minutes from sign_in_attempts where phone = $1",
+        [ANA_PHONE],
+      )
+      expect(lock[0]?.failures).toBe(6)
+      expect(Number(lock[0]?.minutes)).toBeGreaterThan(14)
+      expect(Number(lock[0]?.minutes)).toBeLessThanOrEqual(15)
+      expect(await clientAppRepository(pool).claimNipAttempt('9980000002')).toBe(true)
+    })
+
+    it('books the appointment with every service, and a second booking of the slot is slotTaken and changes nothing', async () => {
+      const clientApp = clientAppRepository(pool)
+      const monday = await freeMonday()
+
+      const booked = await clientApp.book({ clientId: '3', date: monday, time: '11:00', totalMxn: 300, serviceIds: ['1', '2', '7'] })
+
+      const ticket = typeof booked === 'string' ? '' : booked.ticket
+      const { rows: stored } = await pool.query<{ client_id: string; preliminary_total_mxn: number; service_ids: string[] }>(
+        `select a.client_id, a.preliminary_total_mxn,
+            array(select service_id::text from appointment_services where appointment_id = a.id order by service_id) as service_ids
+          from appointments a where a.ticket = $1 and a.scheduled_date = $2`,
+        [ticket, monday],
+      )
+      expect(stored).toEqual([{ client_id: '3', preliminary_total_mxn: 300, service_ids: ['1', '2', '7'] }])
+      expect(await countOf('appointments')).toBe(6)
+      expect(await countOf('appointment_services')).toBe(10)
+
+      expect(await clientApp.book({ clientId: '5', date: monday, time: '11:00', totalMxn: 80, serviceIds: ['1'] })).toBe('slotTaken')
+      expect(await countOf('appointments')).toBe(6)
+      expect(await countOf('appointment_services')).toBe(10)
+      expect(await ticketsOfClient('5')).toEqual(['1503'])
+    })
+  })
 })
 
 // Wipes the throwaway database and loads it as the README tells: schema, an admin, seed.

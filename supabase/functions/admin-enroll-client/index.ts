@@ -76,7 +76,7 @@ async function enrollExistingClient(admin: SupabaseClient, clientId: number, pho
   if (error?.code === '23505') return problem(409, PHONE_TAKEN, 'phone_taken')
   if (error !== null) throw error
 
-  // Her auth user is named after the phone; keep it in step, as client-update-profile does.
+  // Her auth user is named after the phone; keep it in step, as PUT /api/client/profile does.
   if (before.user_id !== null && before.phone !== phone) {
     const renamed = await admin.auth.admin.updateUserById(before.user_id, {
       email: `${phone}@clients.calm.app`,

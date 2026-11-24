@@ -1,6 +1,6 @@
 # CALM — Panel de administración de *Costurando a la medida*
 
-Aplicación web para la administradora de *Costurando a la medida*, un taller de costura en Cancún. El repositorio tiene **dos proyectos**: el panel en React (`src/`) y su API REST en Express (`backend/`). Los datos viven en Postgres (Supabase) y la administradora inicia sesión con Supabase Auth.
+Aplicación web para la administradora de *Costurando a la medida*, un taller de costura en Cancún. El repositorio tiene **dos proyectos**: el panel en React (`src/`) y la API REST en Express (`backend/`). La API atiende al panel (`/api/*`) y a la app de clientas `calm_mobil` (`/api/client/*`). Los datos viven en Postgres (Supabase) y las sesiones de la administradora y de las clientas las da Supabase Auth.
 
 ## Inicio rápido
 
@@ -14,7 +14,7 @@ Aplicación web para la administradora de *Costurando a la medida*, un taller de
 
 ## Alcance del módulo
 
-El módulo es el **panel de administración**. La parte de la clienta (catálogo, cotización, reservación y estado del pedido) es una app de Android aparte (`calm_mobil`), que sigue hablando directo con Supabase y no usa esta API.
+El módulo es el **panel de administración**. La parte de la clienta (catálogo, cotización, reservación y estado del pedido) es una app de Android aparte (`calm_mobil`) que lee y escribe todo a través de esta misma API, en `/api/client/*` ([App de clientas](#app-de-clientas)); ya no llama a Supabase para sus datos.
 
 | Sección | Qué hace la administradora |
 |---------|----------------------------|
@@ -63,13 +63,13 @@ Misma organización por tipo de archivo que appVeterinaria:
 │   │   ├── routes/       # Método + URL → controlador
 │   │   ├── controllers/  # Validación y reglas de negocio
 │   │   ├── repositories/ # SQL parametrizado
-│   │   ├── middlewares/  # Guardia de administradora y errores centralizados
+│   │   ├── middlewares/  # Guardias de administradora y de clienta, errores centralizados
 │   │   ├── types/        # Formas JSON e interfaces
 │   │   └── utils/        # asyncHandler, HttpError, hash del NIP
 │   └── test/             # Pruebas de la API (Vitest + Supertest)
 ├── database/             # schema.sql y seed.sql
 ├── docs/                 # Contrato de la API, pruebas y arquitectura
-└── supabase/             # Migraciones (fuente de verdad del esquema) y Edge Functions de la app móvil
+└── supabase/             # Migraciones (fuente de verdad del esquema) y Edge Functions
 ```
 
 ## Configuración
@@ -93,7 +93,7 @@ Copia cada `.env.example` y llena los valores. Los archivos `.env` y `.env.local
 | `DATABASE_SSL_CA` | No | Ruta al certificado de Supabase (Project Settings → Database → SSL Configuration → Download certificate). Con él, la API **verifica** que habla con Supabase. Sin él la conexión sigue cifrada pero sin verificar el servidor: úsalo así solo en desarrollo. |
 | `SUPABASE_URL` | Sí | URL del proyecto; la API verifica con Supabase Auth el token de cada petición. |
 | `SUPABASE_PUBLISHABLE_KEY` | Sí | Llave pública, para esa verificación. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Sí | Llave secreta (*service role*). Solo la usa la API para cambiar el correo de Supabase Auth de una clienta de la app cuando cambia su celular. **Nunca** va en el panel ni en Git. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Sí | Llave secreta (*service role*). Solo la usa la API para crear el usuario de Supabase Auth de una clienta de la app, abrirle su sesión al entrar con su NIP y cambiar su correo de Auth cuando cambia su celular. **Nunca** va en el panel, en la app ni en Git. |
 | `CORS_ORIGIN` | No (`http://localhost:5173,http://127.0.0.1:5173`) | Orígenes del panel que pueden llamar a la API, separados por comas. |
 
 Plantilla sin secretos:
@@ -162,6 +162,20 @@ El modelo de datos está en [docs/arquitectura.md](docs/arquitectura.md#modelo-d
 |----------|-----|
 | Panel (Vite) | `http://localhost:5173` |
 | API (Express) | `http://localhost:3000/api` |
+| API vista desde el emulador de Android | `http://10.0.2.2:3000/api` |
+
+## App de clientas
+
+La app `calm_mobil` (Flutter) usa la misma API que el panel, en `/api/client/*`: entra con celular y NIP en `POST /api/client/sign-in`, que responde un refresh token de Supabase Auth; la app lo guarda con `supabase_flutter` y manda el access token de esa sesión como `Authorization: Bearer <token>` en cada petición. El contrato está en [docs/api.md › API de la app de clientas](docs/api.md#api-de-la-app-de-clientas).
+
+Para correrla en el emulador de Android contra esta API:
+
+1. Arranca la API: `npm --prefix backend run dev` (escucha en el puerto 3000 de tu computadora).
+2. En `calm_mobil`, pon en su archivo de entorno `API_URL` = `http://10.0.2.2:3000/api`. `10.0.2.2` es la dirección con la que el emulador llega a tu computadora; `localhost` dentro del emulador es el propio emulador.
+3. Corre la app como dice su [README](https://github.com/carrapido/CALM_mobile#readme) (`flutter run --dart-define-from-file=env/supabase.json`).
+4. En la terminal de la API verás cada petición de la app, como `GET /api/client/services 200 15ms`.
+
+La app no es un navegador, así que `CORS_ORIGIN` no le aplica.
 
 ## CORS
 
@@ -173,12 +187,12 @@ Si una pantalla del panel no puede cargar sus datos, muestra qué falló y el bo
 
 | Documento | Contenido |
 |-----------|-----------|
-| [docs/api.md](docs/api.md) | Contrato de cada endpoint: método, URL, entradas, JSON de salida, códigos de error y regla de negocio. |
+| [docs/api.md](docs/api.md) | Contrato de cada endpoint del panel y de la app de clientas: método, URL, entradas, JSON de salida, códigos de error y regla de negocio. |
 | [docs/pruebas.md](docs/pruebas.md) | Tabla de casos con entrada, resultado esperado y observado, y pasos para la evidencia en vivo. |
-| [docs/arquitectura.md](docs/arquitectura.md) | Diagrama de arquitectura, modelo de datos y el recorrido de «Registrar pedido». |
+| [docs/arquitectura.md](docs/arquitectura.md) | Diagrama de arquitectura (panel y app), modelo de datos y los recorridos de «Registrar pedido» y «Agendar una cita». |
 | [database/](database/) | `schema.sql` y `seed.sql`. |
 | [odd/](odd/objectives.md) | Objetivos, decisiones y especificaciones de cada funcionalidad. |
 
 ## Tecnologías
 
-React 19, TypeScript, Tailwind CSS v4, Vite, Vitest + Testing Library, Oxlint · Express 5, node-postgres (`pg`), Supabase (Auth y Postgres), Vitest + Supertest.
+React 19, TypeScript, Tailwind CSS v4, Vite, Vitest + Testing Library, Oxlint · Express 5, node-postgres (`pg`), Supabase (Auth y Postgres), Vitest + Supertest · App de clientas: Flutter (`calm_mobil`).

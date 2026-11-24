@@ -16,8 +16,8 @@
 --     `authenticated` de Supabase. De la app móvil solo trae las funciones que la API llama
 --     (claim_nip_attempt, orphaned_auth_user_id, booking_calendar), sin permisos para
 --     anon ni authenticated; sus políticas quedan en las migraciones.
---   * La API entra con el rol dueño de las tablas (postgres), que no aplica RLS: su guardia
---     es backend/src/middlewares/auth.middleware.ts.
+--   * La API entra con el rol dueño de las tablas (postgres), que no aplica RLS: sus guardias
+--     son backend/src/middlewares/auth.middleware.ts (panel) y client-auth.middleware.ts (app).
 --
 -- Dinero en pesos enteros (MXN). Fechas y horas son de reloj de Cancún.
 -- Las llaves foráneas no tienen cascada: un registro en uso no se borra, salvo los
