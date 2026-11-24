@@ -3,6 +3,7 @@ import request from 'supertest'
 import { describe, expect, it } from 'vitest'
 import type { Appointment, WeeklySchedule } from '../src/types/agenda.js'
 import { InMemoryAgendaRepository } from './in-memory-agenda-repository.js'
+import { postgresError } from './postgres-error.js'
 import { ADMIN_ID, asAdmin, testApp } from './test-app.js'
 
 const WEEK: WeeklySchedule = {
@@ -232,6 +233,19 @@ describe('DELETE /api/appointments/:ticket', () => {
     expect(response.status).toBe(204)
     expect(response.text).toBe('')
     expect(await agenda.appointmentsBetween('2026-01-01', '2026-12-31')).toEqual([ANA, LATER])
+  })
+
+  it('answers 409 when an order already points to the appointment and keeps it', async () => {
+    const { app, agenda } = agendaApp()
+    agenda.cancelAppointment = async () => {
+      throw postgresError('23503')
+    }
+
+    const response = await request(app).delete('/api/appointments/0427?date=2026-06-03').set(asAdmin())
+
+    expect(response.status).toBe(409)
+    expect(response.body.code).toBe('conflict')
+    expect(await agenda.appointmentsBetween('2026-01-01', '2026-12-31')).toEqual([ANA, WALK_IN, LATER])
   })
 
   it('answers 404 when that date has no appointment with that ticket', async () => {

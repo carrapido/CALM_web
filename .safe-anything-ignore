@@ -1,0 +1,3 @@
+# Example settings files hold placeholders only, never real credentials.
+.env.example
+backend/.env.example
