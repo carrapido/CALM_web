@@ -1,11 +1,16 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { button, chipsIn, findDay, renderAgendaCalendar, segment } from './calendar-test-kit'
-
-const MARIA_CHIP = 'Cita por recibir, 10:30, María López, ticket 4821'
-const LUCIA_CHIP = 'Entrega del pedido 5512, Lucía Gómez, Recibido'
-const CARLOS_CHIP = 'Entrega del pedido 7720, Carlos Ruiz, Listo para recoger'
+import {
+  button,
+  CARLOS_CHIP,
+  chipsIn,
+  findDay,
+  LUCIA_CHIP,
+  MARIA_CHIP,
+  renderAgendaCalendar,
+  segment,
+} from './calendar-test-kit'
 
 async function openMonth() {
   renderAgendaCalendar()
@@ -187,7 +192,7 @@ describe('Page actions', () => {
     await userEvent.type(screen.getByLabelText('Fecha de entrega'), '2026-10-27')
     await userEvent.click(button('Registrar pedido'))
     expect(await screen.findByRole('heading', { name: 'Pedido registrado' })).toBeInTheDocument()
-    await userEvent.click(button('Ver pedidos'))
+    await userEvent.click(button('Volver a la agenda'))
 
     expect(chipsIn(await findDay('Martes 27 de octubre'))).toEqual(['Entrega del pedido 4821, María López, Recibido'])
   })
@@ -201,7 +206,7 @@ describe('Page actions', () => {
     await userEvent.type(screen.getByLabelText('Precio final'), '280')
     await userEvent.type(screen.getByLabelText('Fecha de entrega'), '2026-10-27')
     await userEvent.click(button('Registrar pedido'))
-    await userEvent.click(await screen.findByRole('button', { name: 'Ver pedidos' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Volver a la agenda' }))
 
     expect(chipsIn(await findDay('Sábado 24 de octubre'))).toEqual([])
     expect(chipsIn(await findDay('Martes 27 de octubre'))).toEqual(['Entrega del pedido 4821, María López, Recibido'])

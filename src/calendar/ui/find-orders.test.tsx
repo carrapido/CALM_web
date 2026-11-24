@@ -1,12 +1,26 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { button, currentStep, orderDetail, ordersInWorkshop, renderOrders, rowsIn } from './orders-test-kit'
+import {
+  button,
+  CARLOS_CHIP,
+  chooseChip,
+  currentStep,
+  findDay,
+  LUCIA_CHIP,
+  orderChips,
+  orderDetail,
+  renderAgendaCalendar,
+  searchTicket,
+  segment,
+} from './calendar-test-kit'
+
+const ELENA_CHIP = 'Entrega del pedido 3301, Elena Díaz, Entregado'
+const SOFIA_CHIP = 'Entrega del pedido 6604, Sofía Ramos, Cancelado'
 
 describe('Find an order by ticket', () => {
   it('shows a finished order found by its ticket and opens its detail', async () => {
-    renderOrders()
-    await ordersInWorkshop()
+    await openCalendar()
 
     await searchTicket('3301')
 
@@ -18,8 +32,7 @@ describe('Find an order by ticket', () => {
   })
 
   it('says when no order has that ticket', async () => {
-    renderOrders()
-    await ordersInWorkshop()
+    await openCalendar()
 
     await searchTicket('9999')
 
@@ -27,50 +40,42 @@ describe('Find an order by ticket', () => {
   })
 
   it('asks for the 4 digits of the ticket', async () => {
-    renderOrders()
-    await ordersInWorkshop()
+    await openCalendar()
 
     await searchTicket('33')
 
     expect(await screen.findByText('Escribe los 4 números del ticket')).toBeInTheDocument()
   })
 
-  it('brings the list back when the search is closed', async () => {
-    renderOrders()
-    await ordersInWorkshop()
+  it('brings the calendar back when the search is closed', async () => {
+    await openCalendar()
     await searchTicket('3301')
     await screen.findByRole('list', { name: 'Resultados de la búsqueda' })
 
     await userEvent.click(button('Cerrar búsqueda'))
 
-    expect(rowsIn(await ordersInWorkshop())).toHaveLength(2)
+    expect(await orderChips()).toEqual([CARLOS_CHIP, LUCIA_CHIP])
     expect(screen.queryByRole('list', { name: 'Resultados de la búsqueda' })).not.toBeInTheDocument()
   })
 })
 
 describe('Finished orders', () => {
-  it('lists delivered and cancelled orders, newest first', async () => {
-    renderOrders()
-    await ordersInWorkshop()
+  it('shows delivered and cancelled orders on Terminados', async () => {
+    await openCalendar()
+    await userEvent.click(segment('Qué ver', 'Pedidos'))
 
-    await userEvent.click(button('Terminados'))
+    await userEvent.click(segment('Qué pedidos ver', 'Terminados'))
 
-    const rows = rowsIn(await screen.findByRole('list', { name: 'Pedidos terminados' }))
-    expect(rows).toHaveLength(2)
-    expect(rows[0]).toHaveTextContent('Elena Díaz')
-    expect(rows[0]).toHaveTextContent('Entregado')
-    expect(rows[1]).toHaveTextContent('Sofía Ramos')
-    expect(rows[1]).toHaveTextContent('Cancelado')
-    expect(button('Terminados')).toHaveAttribute('aria-pressed', 'true')
+    expect(await orderChips()).toEqual([SOFIA_CHIP, ELENA_CHIP])
+    expect(segment('Qué pedidos ver', 'Terminados')).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('shows a finished order read only', async () => {
-    renderOrders()
-    await ordersInWorkshop()
-    await userEvent.click(button('Terminados'))
-    const finished = await screen.findByRole('list', { name: 'Pedidos terminados' })
+    await openCalendar()
+    await userEvent.click(segment('Qué ver', 'Pedidos'))
+    await userEvent.click(segment('Qué pedidos ver', 'Terminados'))
 
-    await userEvent.click(within(finished).getByRole('button', { name: /Elena Díaz/ }))
+    await chooseChip('Martes 20 de octubre', ELENA_CHIP)
 
     const detail = orderDetail()
     expect(currentStep(detail)).toBe('Entregado')
@@ -78,11 +83,11 @@ describe('Finished orders', () => {
       .getAllByRole('button')
       .map((detailButton) => detailButton.textContent)
     expect(buttonNames).toHaveLength(1)
-    expect(buttonNames[0]).toContain('Volver a pedidos')
+    expect(buttonNames[0]).toContain('Volver a la agenda')
   })
 })
 
-async function searchTicket(ticket: string) {
-  await userEvent.type(screen.getByRole('textbox', { name: 'Buscar por ticket' }), ticket)
-  await userEvent.click(button('Buscar'))
+async function openCalendar() {
+  renderAgendaCalendar()
+  await findDay('Sábado 24 de octubre')
 }

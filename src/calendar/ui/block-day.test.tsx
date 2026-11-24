@@ -1,18 +1,11 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import {
-  SATURDAY_MORNING,
-  button,
-  dayHeading,
-  daySlots,
-  renderAgenda,
-  slotGroup,
-} from './agenda-test-kit'
+import { button, dayHeading, daySlots, renderDayView, slotGroup } from './calendar-test-kit'
 
 describe('Block a day', () => {
   it('blocks an open day without appointments once confirmed, and unblocks it', async () => {
-    renderAgenda(SATURDAY_MORNING)
+    await renderDayView()
     await goToTuesday()
 
     await userEvent.click(button('Bloquear este día'))
@@ -33,7 +26,7 @@ describe('Block a day', () => {
   })
 
   it('keeps the day open when the admin changes her mind', async () => {
-    renderAgenda(SATURDAY_MORNING)
+    await renderDayView()
     await goToTuesday()
 
     await userEvent.click(button('Bloquear este día'))
@@ -44,8 +37,7 @@ describe('Block a day', () => {
   })
 
   it('refuses to block a day that has appointments', async () => {
-    renderAgenda(SATURDAY_MORNING)
-    await dayHeading()
+    await renderDayView()
 
     await userEvent.click(button('Bloquear este día'))
 
@@ -56,7 +48,6 @@ describe('Block a day', () => {
 })
 
 async function goToTuesday() {
-  await dayHeading()
   await userEvent.click(button('Día siguiente'))
   await userEvent.click(button('Día siguiente'))
   await userEvent.click(button('Día siguiente'))

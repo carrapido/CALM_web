@@ -2,14 +2,20 @@ import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import {
+  APPOINTMENTS_AWAITING_ORDERS,
   button,
-  chooseOrder,
+  CARLOS_CHIP,
+  chooseChip,
   currentStep,
   fact,
-  ordersInWorkshop,
-  renderOrders,
-  rowsIn,
-} from './orders-test-kit'
+  findDay,
+  LUCIA_CHIP,
+  orderChips,
+  orderDetail,
+  renderAgendaCalendar,
+} from './calendar-test-kit'
+
+const MARIA_ORDER_CHIP = 'Entrega del pedido 4821, María López, Recibido'
 
 describe('New order sheet', () => {
   it("offers today's and recent appointments without an order, and walk-in clients", async () => {
@@ -69,8 +75,9 @@ describe('Registering an order', () => {
 
     expect(await screen.findByRole('heading', { name: 'Pedido registrado' })).toBeInTheDocument()
     expect(screen.getByText('Ticket 4821')).toBeInTheDocument()
-    await userEvent.click(button('Ver pedidos'))
-    const detail = await chooseOrder('María López')
+    await userEvent.click(button('Volver a la agenda'))
+    await chooseChip('Martes 27 de octubre', MARIA_ORDER_CHIP)
+    const detail = orderDetail()
     expect(within(detail).getByText('Ticket 4821')).toBeInTheDocument()
     expect(fact(detail, 'Total, se paga en el taller')).toBe('$280 MXN')
     expect(currentStep(detail)).toBe('Recibido')
@@ -80,8 +87,8 @@ describe('Registering an order', () => {
     await openNewOrder()
     await fillPriceAndDelivery('280', '2026-10-27')
     await userEvent.click(button('Registrar pedido'))
-    await userEvent.click(await screen.findByRole('button', { name: 'Ver pedidos' }))
-    await ordersInWorkshop()
+    await userEvent.click(await screen.findByRole('button', { name: 'Volver a la agenda' }))
+    await findDay('Sábado 24 de octubre')
 
     await userEvent.click(button('Nuevo pedido'))
 
@@ -92,10 +99,8 @@ describe('Registering an order', () => {
 
   it('gives a walk-in order a new ticket that no active order uses', async () => {
     // 0.55125 would draw 5512, Lucía's active ticket, so the next draw is used.
-    renderOrders({ randomValues: [0.55125, 0.12345] })
-    await ordersInWorkshop()
-    await userEvent.click(button('Nuevo pedido'))
-    await userEvent.click(within(await findOrigin()).getByRole('radio', { name: 'Llegó sin cita' }))
+    await openNewOrder({ randomValues: [0.55125, 0.12345] })
+    await userEvent.click(within(origin()).getByRole('radio', { name: 'Llegó sin cita' }))
 
     await userEvent.type(field('Nombre del cliente'), 'Ana Martínez')
     await userEvent.type(field('Trabajo a realizar'), 'Ajuste de vestido')
@@ -121,13 +126,13 @@ describe('Registering an order', () => {
     expect(screen.getByText('Elige una fecha de entrega de hoy en adelante')).toBeInTheDocument()
 
     await userEvent.click(button('Volver sin guardar'))
-    expect(rowsIn(await ordersInWorkshop())).toHaveLength(2)
+    expect(await orderChips()).toEqual([CARLOS_CHIP, LUCIA_CHIP])
   })
 })
 
-async function openNewOrder() {
-  renderOrders()
-  await ordersInWorkshop()
+async function openNewOrder(options?: { randomValues: number[] }) {
+  renderAgendaCalendar({ appointments: APPOINTMENTS_AWAITING_ORDERS, ...options })
+  await findDay('Sábado 24 de octubre')
   await userEvent.click(button('Nuevo pedido'))
   await findOrigin()
 }

@@ -15,7 +15,7 @@ export function OrderRegistered({ ticket, onDone }: OrderRegisteredProps) {
       </p>
       <p className="text-title-md text-on-surface">Anota este número en el recibo del cliente.</p>
       <Button variant="primary" onClick={onDone} className="self-stretch">
-        Ver pedidos
+        Volver a la agenda
       </Button>
     </div>
   )
