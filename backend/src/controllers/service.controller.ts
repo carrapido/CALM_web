@@ -2,6 +2,7 @@
 import type { Request, Response } from 'express'
 import type { ServiceDetails, ServicePrice, ServiceRepository } from '../types/service.js'
 import { HttpError } from '../utils/http-error.js'
+import { isRecord } from '../utils/is-record.js'
 
 const MAX_NAME_LENGTH = 80
 const MAX_ESTIMATED_DAYS = 30
@@ -88,10 +89,6 @@ function isActiveOf(body: unknown): boolean {
     throw invalidInput('Indica si el servicio está activo con true o false.')
   }
   return isActive
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
 }
 
 function isIntegerBetween(value: unknown, min: number, max: number): value is number {

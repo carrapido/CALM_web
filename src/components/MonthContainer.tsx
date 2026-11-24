@@ -57,11 +57,13 @@ export function MonthContainer({
     showsPending ? pendingAppointments(repository, ordersRepository, today) : Promise.resolve([]),
   )
 
-  const cancelAppointment = (ticket: string) =>
-    repository.cancelAppointment(ticket).then(() => {
-      reload()
-      reloadPending()
-    })
+  // Only the chosen appointment's detail offers to cancel it, so its date is the chip's.
+  const cancelAppointment = async (ticket: string) => {
+    if (chosen === undefined) return
+    await repository.cancelAppointment(ticket, chosen.date)
+    reload()
+    reloadPending()
+  }
 
   return (
     <div className="mt-space-lg flex flex-col gap-space-md">

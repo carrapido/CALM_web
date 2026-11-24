@@ -36,7 +36,7 @@ export function DayAgendaContainer({ repository, now, date, onDateChange }: DayA
         onBackToToday: () => onDateChange(today),
       }}
       actions={{
-        onCancelAppointment: (ticket) => changeThenReload(repository.cancelAppointment(ticket)),
+        onCancelAppointment: (ticket) => changeThenReload(repository.cancelAppointment(ticket, date)),
         onBlockDay: () => changeThenReload(repository.blockDay(date)),
         onUnblockDay: () => changeThenReload(repository.unblockDay(date)),
       }}

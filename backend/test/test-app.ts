@@ -1,23 +1,41 @@
-import { createApp } from '../src/app.js'
-import type { ServiceRepository } from '../src/types/service.js'
+import { createApp, type AppDependencies } from '../src/app.js'
+import type { AuthAccounts } from '../src/types/client.js'
+import { InMemoryAgendaRepository } from './in-memory-agenda-repository.js'
+import { InMemoryClientRepository } from './in-memory-client-repository.js'
+import { InMemoryOrderRepository } from './in-memory-order-repository.js'
 import { InMemoryServiceRepository } from './in-memory-service-repository.js'
 
 export const ADMIN_TOKEN = 'token-de-administradora'
 export const CLIENT_TOKEN = 'token-de-clienta'
 export const ALLOWED_ORIGIN = 'http://localhost:5173'
+export const ADMIN_ID = 'admin-user-id'
 
 const USER_ID_BY_TOKEN = new Map([
-  [ADMIN_TOKEN, 'admin-user-id'],
+  [ADMIN_TOKEN, ADMIN_ID],
   [CLIENT_TOKEN, 'client-user-id'],
 ])
 
-// The app with fakes in place of Supabase Auth and Postgres.
-export function testApp(services: ServiceRepository = new InMemoryServiceRepository()) {
+// Records each auth email change instead of calling Supabase.
+export class RecordingAuthAccounts implements AuthAccounts {
+  readonly emailChanges: { userId: string; email: string }[] = []
+
+  async updateEmail(userId: string, email: string): Promise<void> {
+    this.emailChanges.push({ userId, email })
+  }
+}
+
+// The app with fakes in place of Supabase Auth and Postgres; a test passes the ones it inspects.
+export function testApp(dependencies: Partial<Omit<AppDependencies, 'corsOrigin'>> = {}) {
   return createApp({
     corsOrigin: ALLOWED_ORIGIN,
     identity: { userIdForToken: async (token) => USER_ID_BY_TOKEN.get(token) ?? null },
-    admins: { isAdmin: async (userId) => userId === 'admin-user-id' },
-    services,
+    admins: { isAdmin: async (userId) => userId === ADMIN_ID },
+    services: new InMemoryServiceRepository(),
+    clients: new InMemoryClientRepository(),
+    authAccounts: new RecordingAuthAccounts(),
+    agenda: new InMemoryAgendaRepository(),
+    orders: new InMemoryOrderRepository(),
+    ...dependencies,
   })
 }
 

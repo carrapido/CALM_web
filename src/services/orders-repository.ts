@@ -1,6 +1,6 @@
 import type { Order } from '../utils/order'
 
-// Port: the in-memory adapter stands in until the API exists.
+// Port: the CALM API in the running app, in memory in tests.
 export interface OrdersRepository {
   orders(): Promise<Order[]>
   addOrder(order: Order): Promise<void>

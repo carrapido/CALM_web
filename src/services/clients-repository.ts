@@ -11,7 +11,7 @@ export type EnrollmentOutcome =
   // It never answered, or answered something unexpected.
   | { kind: 'unavailable' }
 
-// Port: Supabase in the running app, in memory in tests.
+// Port: the CALM API in the running app, in memory in tests.
 export interface ClientsRepository {
   clients(): Promise<Client[]>
   // Registers a new client or gives an existing one access with a new NIP.

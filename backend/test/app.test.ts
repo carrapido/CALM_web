@@ -2,7 +2,6 @@
 import request from 'supertest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ServiceRepository } from '../src/types/service.js'
-import { createApp } from '../src/app.js'
 import { InMemoryServiceRepository } from './in-memory-service-repository.js'
 import { postgresError } from './postgres-error.js'
 import { ADMIN_TOKEN, ALLOWED_ORIGIN, CLIENT_TOKEN, asAdmin, testApp } from './test-app.js'
@@ -108,7 +107,7 @@ describe('The error middleware', () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     const failure = new Error('password authentication failed for user "postgres"')
 
-    const response = await request(testApp(failingServices(failure))).get('/api/services').set(asAdmin())
+    const response = await request(testApp({ services: failingServices(failure) })).get('/api/services').set(asAdmin())
 
     expect(response.status).toBe(500)
     expect(response.body).toEqual(UNAVAILABLE)
@@ -119,7 +118,7 @@ describe('The error middleware', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const services = failingServices(postgresError('23505', 'duplicate key value violates "x_key"'))
 
-    const response = await request(testApp(services)).get('/api/services').set(asAdmin())
+    const response = await request(testApp({ services })).get('/api/services').set(asAdmin())
 
     expect(response.status).toBe(409)
     expect(response.body).toEqual({ error: 'Ya existe un registro con esos datos.', code: 'conflict' })
@@ -129,7 +128,7 @@ describe('The error middleware', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const services = failingServices(postgresError('23503'))
 
-    const response = await request(testApp(services)).get('/api/services').set(asAdmin())
+    const response = await request(testApp({ services })).get('/api/services').set(asAdmin())
 
     expect(response.status).toBe(409)
     expect(response.body).toEqual({
@@ -142,7 +141,7 @@ describe('The error middleware', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const services = failingServices(postgresError('22P02'))
 
-    const response = await request(testApp(services)).get('/api/services').set(asAdmin())
+    const response = await request(testApp({ services })).get('/api/services').set(asAdmin())
 
     expect(response.status).toBe(400)
     expect(response.body).toEqual({ error: 'Los datos enviados no son válidos.', code: 'invalid_input' })
@@ -167,8 +166,7 @@ describe('The admin guard failures', () => {
     'answers 401 for %j without asking Supabase',
     async (header) => {
       const seen: string[] = []
-      const app = createApp({
-        corsOrigin: ALLOWED_ORIGIN,
+      const app = testApp({
         services: new InMemoryServiceRepository(),
         identity: {
           userIdForToken: async (token) => {
@@ -190,8 +188,7 @@ describe('The admin guard failures', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const services = new InMemoryServiceRepository()
     const all = vi.spyOn(services, 'all')
-    const app = createApp({
-      corsOrigin: ALLOWED_ORIGIN,
+    const app = testApp({
       services,
       identity: {
         userIdForToken: async () => {
@@ -210,8 +207,7 @@ describe('The admin guard failures', () => {
 
   it('answers 500 when the admins lookup fails', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    const app = createApp({
-      corsOrigin: ALLOWED_ORIGIN,
+    const app = testApp({
       services: new InMemoryServiceRepository(),
       identity: { userIdForToken: async () => 'admin-user-id' },
       admins: {

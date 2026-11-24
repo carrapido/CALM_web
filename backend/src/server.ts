@@ -1,8 +1,12 @@
 import { createApp } from './app.js'
 import { checkConnection, createPool } from './config/database.js'
 import { readEnvironment } from './config/environment.js'
+import { supabaseAuthAccounts } from './config/supabase-admin.js'
 import { supabaseIdentity } from './config/supabase-auth.js'
 import { adminRepository } from './repositories/admin.repository.js'
+import { agendaRepository } from './repositories/agenda.repository.js'
+import { clientRepository } from './repositories/client.repository.js'
+import { orderRepository } from './repositories/order.repository.js'
 import { serviceRepository } from './repositories/service.repository.js'
 
 async function startServer(): Promise<void> {
@@ -15,6 +19,10 @@ async function startServer(): Promise<void> {
     identity: supabaseIdentity(environment.supabaseUrl, environment.supabasePublishableKey),
     admins: adminRepository(pool),
     services: serviceRepository(pool),
+    clients: clientRepository(pool),
+    authAccounts: supabaseAuthAccounts(environment.supabaseUrl, environment.supabaseServiceRoleKey),
+    agenda: agendaRepository(pool),
+    orders: orderRepository(pool),
   })
   app.listen(environment.port, () => {
     console.log(`API de CALM en http://localhost:${environment.port}`)

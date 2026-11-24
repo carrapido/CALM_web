@@ -32,8 +32,10 @@ export class InMemoryAgendaRepository implements AgendaRepository {
     return this.appointments.filter(({ date }) => date >= first && date <= last)
   }
 
-  async cancelAppointment(ticket: string): Promise<void> {
-    this.appointments = this.appointments.filter((appointment) => appointment.ticket !== ticket)
+  async cancelAppointment(ticket: string, date: CalendarDate): Promise<void> {
+    this.appointments = this.appointments.filter(
+      (appointment) => appointment.ticket !== ticket || appointment.date !== date,
+    )
   }
 
   async blockedDates(): Promise<CalendarDate[]> {

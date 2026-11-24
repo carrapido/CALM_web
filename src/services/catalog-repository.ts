@@ -1,6 +1,6 @@
 import type { Service, ServiceDetails } from '../types/service'
 
-// Port: the in-memory adapter stands in until the API exists.
+// Port: the CALM API in the running app, in memory in tests.
 export interface CatalogRepository {
   services(): Promise<Service[]>
   // The store assigns the id; a new service starts active.

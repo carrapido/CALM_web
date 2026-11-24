@@ -29,7 +29,7 @@ const NEW_HEM = { name: 'Dobladillo', price: { kind: 'base', amountMxn: 80 }, es
 // The catalog with Parche and the wedding dress, the second still used by an appointment.
 function catalogApp() {
   const services = new InMemoryServiceRepository([PATCH, WEDDING_DRESS], [WEDDING_DRESS.id])
-  return { app: testApp(services), services }
+  return { app: testApp({ services }), services }
 }
 
 describe('GET /api/services', () => {
