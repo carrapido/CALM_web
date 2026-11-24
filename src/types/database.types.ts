@@ -269,9 +269,7 @@ export type Database = {
     }
     Functions: {
       booking_calendar: { Args: never; Returns: Json }
-      cancel_my_appointment: { Args: { p_ticket: string }; Returns: undefined }
       claim_nip_attempt: { Args: { p_phone: string }; Returns: boolean }
-      mark_on_my_way: { Args: { p_ticket: string }; Returns: undefined }
       orphaned_auth_user_id: {
         Args: { p_client_id: number; p_email: string }
         Returns: string
