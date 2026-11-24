@@ -21,7 +21,13 @@ export class ApiClient {
   private readonly accessToken: () => Promise<string | undefined>
   private readonly fetch: Fetch
 
-  constructor(baseUrl: string, accessToken: () => Promise<string | undefined>, fetchFn: Fetch = fetch) {
+  // The default calls the global fetch directly: browsers refuse fetch with any other `this`
+  // ("Illegal invocation"), which a stored `this.fetch(...)` call would pass.
+  constructor(
+    baseUrl: string,
+    accessToken: () => Promise<string | undefined>,
+    fetchFn: Fetch = (input, init) => fetch(input, init),
+  ) {
     this.baseUrl = baseUrl.replace(/\/+$/, '')
     this.accessToken = accessToken
     this.fetch = fetchFn

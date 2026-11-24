@@ -1,7 +1,8 @@
-import cors from 'cors'
 import express, { type Express } from 'express'
 import { requireAdmin } from './middlewares/auth.middleware.js'
+import { allowPanelOrigins } from './middlewares/cors.middleware.js'
 import { handleErrors, routeNotFound } from './middlewares/error.middleware.js'
+import { logRequests, type LogLine } from './middlewares/request-log.middleware.js'
 import { agendaRouter } from './routes/agenda.routes.js'
 import { clientRouter } from './routes/client.routes.js'
 import { orderRouter } from './routes/order.routes.js'
@@ -14,7 +15,10 @@ import type { ServiceRepository } from './types/service.js'
 
 // Everything the app talks to, so the tests can pass fakes instead of Supabase and Postgres.
 export type AppDependencies = {
+  // CORS_ORIGIN: the panel's origins, separated by commas.
   corsOrigin: string
+  // Where each request's line goes; the terminal when not given.
+  logRequest?: LogLine
   identity: Identity
   admins: AdminRepository
   services: ServiceRepository
@@ -26,6 +30,7 @@ export type AppDependencies = {
 
 export function createApp({
   corsOrigin,
+  logRequest = console.log,
   identity,
   admins,
   services,
@@ -35,7 +40,9 @@ export function createApp({
   orders,
 }: AppDependencies): Express {
   const app = express()
-  app.use(cors({ origin: corsOrigin }))
+  // First, so even a CORS preflight or a refused request shows in the terminal.
+  app.use(logRequests(logRequest))
+  app.use(allowPanelOrigins(corsOrigin))
   app.use(express.json())
 
   app.get('/api/health', (_req, res) => {

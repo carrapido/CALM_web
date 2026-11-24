@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Icon } from './Icon'
 import type { CalendarDate } from '../utils/calendar-date'
 import type { WeekDaySummary } from '../utils/week-agenda'
@@ -6,17 +7,21 @@ import { capitalize, formatCount, formatDateRange, formatLongDate } from '../uti
 type WeekViewProps = {
   dates: CalendarDate[]
   days: WeekDaySummary[] | undefined
+  // A <LoadError> when the week failed to load, shown instead of it.
+  loadError: ReactNode
   today: CalendarDate
   onChooseDay: (date: CalendarDate) => void
 }
 
-export function WeekView({ dates, days, today, onChooseDay }: WeekViewProps) {
+export function WeekView({ dates, days, loadError, today, onChooseDay }: WeekViewProps) {
   return (
     <div className="mt-space-lg flex flex-col gap-space-lg">
       <h2 className="text-headline-lg text-on-surface">
         Semana {formatDateRange(dates[0], dates[dates.length - 1])}
       </h2>
-      {days === undefined ? (
+      {loadError ? (
+        loadError
+      ) : days === undefined ? (
         <p className="text-on-surface-variant">Cargando la semana…</p>
       ) : (
         <ol aria-label="Días de la semana" className="flex flex-col gap-space-sm">

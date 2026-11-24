@@ -5,6 +5,7 @@ import { useQuery } from '../hooks/useQuery'
 import { appointmentsAwaitingOrder } from '../services/appointments-awaiting-order'
 import type { OrdersRepository } from '../services/orders-repository'
 import { registerOrder, type OrderDetails } from '../services/register-order'
+import { LoadError } from './LoadError'
 import { NewOrderSheet } from './NewOrderSheet'
 
 type NewOrderContainerProps = {
@@ -24,7 +25,7 @@ export function NewOrderContainer({
   onRegistered,
   onCancel,
 }: NewOrderContainerProps) {
-  const { data: appointments } = useQuery('appointments-awaiting-order', () =>
+  const { data: appointments, error, reload } = useQuery('appointments-awaiting-order', () =>
     appointmentsAwaitingOrder(agendaRepository, ordersRepository, today),
   )
 
@@ -37,6 +38,7 @@ export function NewOrderContainer({
       today,
     ).then((order) => onRegistered(order.ticket))
 
+  if (error !== undefined) return <LoadError error={error} onRetry={reload} className="mt-space-lg" />
   // The sheet starts on the first appointment, so it waits for the list.
   if (appointments === undefined) {
     return <p className="mt-space-lg text-on-surface-variant">Cargando las citas…</p>

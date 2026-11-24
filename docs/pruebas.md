@@ -11,13 +11,14 @@ npm --prefix backend test
 Resultado observado (sin `TEST_DATABASE_URL`, así que las pruebas de SQL se saltan):
 
 ```text
- Test Files  7 passed | 1 skipped (8)
-      Tests  195 passed | 24 skipped (219)
+ Test Files  8 passed | 1 skipped (9)
+      Tests  200 passed | 24 skipped (224)
 ```
 
 | Archivo | Pruebas | Qué cubre |
 |---------|---------|-----------|
-| `app.test.ts` | 33 | Salud, CORS, guardia de administradora, rutas inexistentes, middleware de errores (con el mensaje de cada restricción conocida), 413 y 415. |
+| `app.test.ts` | 34 | Salud, CORS (con la lista de orígenes), guardia de administradora, rutas inexistentes, middleware de errores (con el mensaje de cada restricción conocida), 413 y 415. |
+| `request-log.test.ts` | 4 | Una línea por petición con método, ruta, código y tiempo, sin token ni cuerpo. |
 | `services.test.ts` | 31 | Catálogo de servicios. |
 | `clients.test.ts` | 34 | Clientes y hash del NIP. |
 | `agenda.test.ts` | 45 | Horario, días bloqueados y citas. |
@@ -38,6 +39,8 @@ En la columna **Observado**, ✅ significa que la respuesta fue exactamente la e
 |------|---------|----------|-----------|--------|
 | API viva | `GET /api/health` sin token | 200 `{"status":"ok"}` | ✅ 200 | app › GET /api/health › answers 200 without a token |
 | CORS | `GET /api/health` con `Origin: https://evil.example` | Sin `Access-Control-Allow-Origin` para ese origen | ✅ | app › GET /api/health › lets only the panel origin read the answer |
+| CORS con varios orígenes | `CORS_ORIGIN=http://localhost:5173, http://127.0.0.1:5173/`; `Origin: http://127.0.0.1:5173` y `Origin: http://localhost:4173` | El segundo origen recibe su `Access-Control-Allow-Origin`; el desconocido, ninguno | ✅ | app › GET /api/health › lets every origin listed in CORS_ORIGIN read the answer, and no other |
+| Registro de peticiones | `GET /api/services` con `TOKEN`; `POST /api/services` con cuerpo | Una línea `GET /api/services 200 <n>ms`; sin el token ni el cuerpo | ✅ | request-log › The request log › logs one line with the method, path, status and time of each request; never logs the token or the body |
 | Sin sesión | `GET /api/services` sin token | 401 `unauthenticated` | ✅ 401 | app › The admin guard on /api › answers 401 without a token |
 | Token vencido | `Authorization: Bearer token-vencido` | 401 `unauthenticated` | ✅ 401 | app › The admin guard on /api › answers 401 for a token Supabase Auth rejects |
 | No es administradora | `Bearer TOKEN_CLIENTA` | 403 `not_admin` | ✅ 403 | app › The admin guard on /api › answers 403 for a signed-in user who is not an admin |

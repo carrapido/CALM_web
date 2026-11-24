@@ -39,6 +39,18 @@ describe('GET /api/health', () => {
     expect(allowed.headers['access-control-allow-origin']).toBe(ALLOWED_ORIGIN)
     expect(other.headers['access-control-allow-origin']).not.toBe('https://evil.example')
   })
+
+  it('lets every origin listed in CORS_ORIGIN read the answer, and no other', async () => {
+    const app = testApp({ corsOrigin: 'http://localhost:5173, http://127.0.0.1:5173/' })
+
+    const first = await request(app).get('/api/health').set('Origin', 'http://localhost:5173')
+    const second = await request(app).get('/api/health').set('Origin', 'http://127.0.0.1:5173')
+    const unknown = await request(app).get('/api/health').set('Origin', 'http://localhost:4173')
+
+    expect(first.headers['access-control-allow-origin']).toBe('http://localhost:5173')
+    expect(second.headers['access-control-allow-origin']).toBe('http://127.0.0.1:5173')
+    expect(unknown.headers['access-control-allow-origin']).toBeUndefined()
+  })
 })
 
 describe('The admin guard on /api', () => {

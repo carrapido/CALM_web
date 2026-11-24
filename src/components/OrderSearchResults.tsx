@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { orderKey, type Order } from '../utils/order'
 import { FinishedNotice } from './FinishedNotice'
 import { OrderDetail, type MoveOrder } from './OrderDetail'
@@ -9,6 +10,8 @@ import { useChosenDetail } from '../hooks/useChosenDetail'
 type OrderSearchResultsProps = {
   // undefined while the orders load.
   orders: Order[] | undefined
+  // A <LoadError> when the orders failed to load, shown instead of them.
+  loadError: ReactNode
   ticket: string
   today: CalendarDate
   onMove: MoveOrder
@@ -16,8 +19,9 @@ type OrderSearchResultsProps = {
 }
 
 // The orders with that ticket, whatever the filter, beside the chosen one's detail.
-export function OrderSearchResults({ orders, ticket, today, onMove, onClose }: OrderSearchResultsProps) {
+export function OrderSearchResults({ orders, loadError, ticket, today, onMove, onClose }: OrderSearchResultsProps) {
   const { chosenKey, notice, choose, movingWithNotice } = useChosenDetail()
+  if (loadError) return <div className="mt-space-lg">{loadError}</div>
   if (orders === undefined) return <p className="mt-space-lg text-on-surface-variant">Cargando los pedidos…</p>
 
   const results = withTicket(orders, ticket)
