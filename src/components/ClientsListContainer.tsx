@@ -3,6 +3,7 @@ import { useQuery } from '../hooks/useQuery'
 import type { ClientsRepository } from '../services/clients-repository'
 import type { Client } from '../types/client'
 import { ClientCard } from './ClientCard'
+import { LoadError } from './LoadError'
 
 type ClientsListContainerProps = {
   repository: ClientsRepository
@@ -11,14 +12,16 @@ type ClientsListContainerProps = {
 }
 
 export function ClientsListContainer({ repository, onAdd, onGiveAccess }: ClientsListContainerProps) {
-  const { data: clients } = useQuery('clients', () => repository.clients())
+  const { data: clients, error, reload } = useQuery('clients', () => repository.clients())
 
   return (
     <div className="mt-space-lg flex flex-col gap-space-lg">
       <Button variant="primary" icon="person_add" onClick={onAdd} className="sm:self-start">
         Dar de alta cliente
       </Button>
-      {clients === undefined ? (
+      {error !== undefined ? (
+        <LoadError error={error} onRetry={reload} />
+      ) : clients === undefined ? (
         <p className="text-on-surface-variant">Cargando los clientes…</p>
       ) : (
         <ClientList clients={alphabetical(clients)} onGiveAccess={onGiveAccess} />

@@ -12,6 +12,7 @@ import { useQuery } from '../hooks/useQuery'
 import type { CalendarFilter } from '../utils/calendar-entries'
 import { MonthContainer } from './MonthContainer'
 import { OrderSearchResults } from './OrderSearchResults'
+import { LoadError } from './LoadError'
 
 export type CalendarView = 'month' | 'week' | 'day'
 
@@ -36,7 +37,12 @@ export function CalendarScreen({
   onDateChange,
 }: CalendarScreenProps) {
   const today = todayInCancun(now())
-  const { data: orders, reload: reloadOrders } = useQuery('orders', () => ordersRepository.orders())
+  const {
+    data: orders,
+    error: ordersError,
+    reload: reloadOrders,
+  } = useQuery('orders', () => ordersRepository.orders())
+  const ordersLoadError = ordersError !== undefined && <LoadError error={ordersError} onRetry={reloadOrders} />
   const [filter, setFilter] = useState<CalendarFilter>({ show: 'all', orders: 'workshop' })
   const [searchedTicket, setSearchedTicket] = useState<string>()
 
@@ -72,6 +78,7 @@ export function CalendarScreen({
         <OrderSearchResults
           key={searchedTicket}
           orders={orders}
+          loadError={ordersLoadError}
           ticket={searchedTicket}
           today={today}
           onMove={moveOrder}
@@ -84,6 +91,7 @@ export function CalendarScreen({
               repository={agendaRepository}
               ordersRepository={ordersRepository}
               orders={orders}
+              ordersLoadError={ordersLoadError}
               filter={filter}
               now={now}
               date={date}

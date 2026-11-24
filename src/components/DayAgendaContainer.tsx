@@ -3,6 +3,7 @@ import { addDays, momentInCancun, type CalendarDate } from '../utils/calendar-da
 import { dayAgenda } from '../utils/day-agenda'
 import { useQuery } from '../hooks/useQuery'
 import { DayView } from './DayView'
+import { LoadError } from './LoadError'
 
 type DayAgendaContainerProps = {
   repository: AgendaRepository
@@ -14,7 +15,7 @@ type DayAgendaContainerProps = {
 export function DayAgendaContainer({ repository, now, date, onDateChange }: DayAgendaContainerProps) {
   const currentMoment = momentInCancun(now())
   const today = currentMoment.date
-  const { data, reload } = useQuery(date, () => loadDay(repository, date))
+  const { data, error, reload } = useQuery(date, () => loadDay(repository, date))
   // Built on render, not when loading, so slots move before "Ahora" as time passes.
   const agenda =
     data && dayAgenda(data.schedule, date, data.appointments, data.blockedDates, currentMoment)
@@ -30,6 +31,7 @@ export function DayAgendaContainer({ repository, now, date, onDateChange }: DayA
       isPast={date < today}
       currentTime={currentMoment.time}
       agenda={agenda}
+      loadError={error !== undefined && <LoadError error={error} onRetry={reload} />}
       navigation={{
         onPreviousDay: () => onDateChange(addDays(date, -1)),
         onNextDay: () => onDateChange(addDays(date, 1)),

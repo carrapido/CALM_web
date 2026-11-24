@@ -84,7 +84,11 @@ Cuando Postgres rechaza una escritura por una restricción conocida de `database
 
 ### CORS
 
-Solo el origen de `CORS_ORIGIN` (por omisión `http://localhost:5173`) puede leer las respuestas desde el navegador.
+Solo los orígenes de `CORS_ORIGIN`, separados por comas (por omisión `http://localhost:5173,http://127.0.0.1:5173`), pueden leer las respuestas desde el navegador.
+
+### Registro de peticiones
+
+La API escribe en su terminal una línea por petición respondida: método, ruta, código y tiempo, como `GET /api/services 200 12ms`. Nunca registra encabezados, cuerpos ni tokens.
 
 ---
 

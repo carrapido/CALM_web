@@ -1,5 +1,6 @@
 import { Button } from './Button'
 import { useQuery } from '../hooks/useQuery'
+import { LoadError } from './LoadError'
 import type { CatalogRepository } from '../services/catalog-repository'
 import type { Service } from '../types/service'
 import { ServiceCard, type ServiceActions } from './ServiceCard'
@@ -11,7 +12,7 @@ type CatalogListContainerProps = {
 }
 
 export function CatalogListContainer({ repository, onAdd, onEdit }: CatalogListContainerProps) {
-  const { data: services, reload } = useQuery('services', () => repository.services())
+  const { data: services, error, reload } = useQuery('services', () => repository.services())
 
   const actions: ServiceActions = {
     onEdit,
@@ -25,7 +26,9 @@ export function CatalogListContainer({ repository, onAdd, onEdit }: CatalogListC
       <Button variant="primary" icon="add" onClick={onAdd} className="sm:self-start">
         Agregar servicio
       </Button>
-      {services === undefined ? (
+      {error !== undefined ? (
+        <LoadError error={error} onRetry={reload} />
+      ) : services === undefined ? (
         <p className="text-on-surface-variant">Cargando el catálogo…</p>
       ) : (
         <ServiceSections services={alphabetical(services)} actions={actions} />

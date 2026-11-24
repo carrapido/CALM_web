@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { AgendaRepository } from '../services/agenda-repository'
 import { dayStatus } from '../utils/day-agenda'
 import { pendingAppointments } from '../services/appointments-awaiting-order'
@@ -16,12 +17,15 @@ import { PendingAppointments } from './PendingAppointments'
 import { useChosenDetail } from '../hooks/useChosenDetail'
 import { ChipLegend } from './EntryChip'
 import { MonthGrid } from './MonthGrid'
+import { LoadError } from './LoadError'
 
 type MonthContainerProps = {
   repository: AgendaRepository
   ordersRepository: OrdersRepository
   // undefined while the orders load.
   orders: Order[] | undefined
+  // A <LoadError> when the orders failed to load: the month needs them too.
+  ordersLoadError: ReactNode
   filter: CalendarFilter
   now: () => Date
   date: CalendarDate
@@ -36,6 +40,7 @@ export function MonthContainer({
   repository,
   ordersRepository,
   orders,
+  ordersLoadError,
   filter,
   now,
   date,
@@ -46,14 +51,20 @@ export function MonthContainer({
   const currentMoment = momentInCancun(now())
   const today = currentMoment.date
   const weeks = monthWeeks(date)
-  const { data: agenda, reload } = useQuery(weeks[0][0], () => loadAgenda(repository, weeks))
+  const { data: agenda, error: agendaError, reload } = useQuery(weeks[0][0], () => loadAgenda(repository, weeks))
+  const monthLoadError =
+    (agendaError !== undefined && <LoadError error={agendaError} onRetry={reload} />) || ordersLoadError
   const { chosenKey, notice, choose, movingWithNotice } = useChosenDetail()
   const entries = agenda && orders && visibleEntries(calendarEntries(agenda.appointments, orders), filter)
   const chosen = entries?.find((entry) => entryKey(entry) === chosenKey)
   const hiddenBesideDetail = chosen ? '@max-3xl:hidden' : ''
   const showsPending = filter.show === 'appointments'
   // Loaded only on Citas, so the other filters cost no extra agenda read.
-  const { data: pending, reload: reloadPending } = useQuery(showsPending ? 'pending-appointments' : 'none', () =>
+  const {
+    data: pending,
+    error: pendingError,
+    reload: reloadPending,
+  } = useQuery(showsPending ? 'pending-appointments' : 'none', () =>
     showsPending ? pendingAppointments(repository, ordersRepository, today) : Promise.resolve([]),
   )
 
@@ -84,7 +95,9 @@ export function MonthContainer({
         <ChipLegend filter={filter} />
       </div>
       <div className="flex flex-col gap-7 @3xl:flex-row @3xl:items-start">
-        {agenda === undefined || entries === undefined ? (
+        {monthLoadError ? (
+          <div className="min-w-0 flex-1">{monthLoadError}</div>
+        ) : agenda === undefined || entries === undefined ? (
           <p className="min-w-0 flex-1 text-on-surface-variant">Cargando el mes…</p>
         ) : (
           <MonthGrid
@@ -103,7 +116,15 @@ export function MonthContainer({
           key={chosenKey}
           entry={chosen}
           now={currentMoment}
-          nothingChosen={showsPending ? <PendingAppointments appointments={pending} today={today} /> : undefined}
+          nothingChosen={
+            showsPending ? (
+              <PendingAppointments
+                appointments={pending}
+                loadError={pendingError !== undefined && <LoadError error={pendingError} onRetry={reloadPending} />}
+                today={today}
+              />
+            ) : undefined
+          }
           onCancelAppointment={cancelAppointment}
           onMoveOrder={movingWithNotice(onMoveOrder)}
           onClose={() => choose(undefined)}

@@ -25,9 +25,11 @@ export class RecordingAuthAccounts implements AuthAccounts {
 }
 
 // The app with fakes in place of Supabase Auth and Postgres; a test passes the ones it inspects.
-export function testApp(dependencies: Partial<Omit<AppDependencies, 'corsOrigin'>> = {}) {
+// It logs no requests, so the test output stays readable.
+export function testApp(dependencies: Partial<AppDependencies> = {}) {
   return createApp({
     corsOrigin: ALLOWED_ORIGIN,
+    logRequest: () => {},
     identity: { userIdForToken: async (token) => USER_ID_BY_TOKEN.get(token) ?? null },
     admins: { isAdmin: async (userId) => userId === ADMIN_ID },
     services: new InMemoryServiceRepository(),

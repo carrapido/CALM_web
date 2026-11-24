@@ -9,6 +9,7 @@ export type Environment = {
   supabasePublishableKey: string
   // Lets the server rename a client's auth email when her phone changes; never sent to the panel.
   supabaseServiceRoleKey: string
+  // The panel's origins, separated by commas.
   corsOrigin: string
 }
 
@@ -21,7 +22,7 @@ export function readEnvironment(): Environment {
     supabaseUrl: required('SUPABASE_URL'),
     supabasePublishableKey: required('SUPABASE_PUBLISHABLE_KEY'),
     supabaseServiceRoleKey: required('SUPABASE_SERVICE_ROLE_KEY'),
-    corsOrigin: (process.env.CORS_ORIGIN ?? 'http://localhost:5173').replace(/\/+$/, ''),
+    corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173,http://127.0.0.1:5173',
   }
 }
 

@@ -8,7 +8,7 @@ Aplicación web para la administradora de *Costurando a la medida*, un taller de
 2. Instala dependencias: `npm install` y `npm --prefix backend install`.
 3. Crea `.env.local` (panel) y `backend/.env` (API) a partir de sus `.env.example` ([Configuración](#configuración)).
 4. Prepara la base de datos y crea una administradora ([Base de datos](#base-de-datos)).
-5. En una terminal: `npm --prefix backend run dev` → API en `http://localhost:3000`.
+5. En una terminal: `npm --prefix backend run dev` → API en `http://localhost:3000`. Esa terminal muestra una línea por cada petición que recibe, como `GET /api/services 200 12ms`.
 6. En otra terminal: `npm run dev` → panel en `http://localhost:5173`.
 7. Comprueba: `curl http://localhost:3000/api/health` responde `{"status":"ok"}`, y entra al panel con el celular y la contraseña de la administradora.
 
@@ -94,7 +94,7 @@ Copia cada `.env.example` y llena los valores. Los archivos `.env` y `.env.local
 | `SUPABASE_URL` | Sí | URL del proyecto; la API verifica con Supabase Auth el token de cada petición. |
 | `SUPABASE_PUBLISHABLE_KEY` | Sí | Llave pública, para esa verificación. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Sí | Llave secreta (*service role*). Solo la usa la API para cambiar el correo de Supabase Auth de una clienta de la app cuando cambia su celular. **Nunca** va en el panel ni en Git. |
-| `CORS_ORIGIN` | No (`http://localhost:5173`) | Origen del panel que puede llamar a la API. |
+| `CORS_ORIGIN` | No (`http://localhost:5173,http://127.0.0.1:5173`) | Orígenes del panel que pueden llamar a la API, separados por comas. |
 
 Plantilla sin secretos:
 
@@ -106,7 +106,7 @@ DATABASE_SSL_CA=
 SUPABASE_URL=https://<proyecto>.supabase.co
 SUPABASE_PUBLISHABLE_KEY=<llave-publishable>
 SUPABASE_SERVICE_ROLE_KEY=<llave-service-role>
-CORS_ORIGIN=http://localhost:5173
+CORS_ORIGIN=http://localhost:5173,http://127.0.0.1:5173
 ```
 
 Si falta una variable obligatoria, la API no arranca y dice cuál.
@@ -165,7 +165,9 @@ El modelo de datos está en [docs/arquitectura.md](docs/arquitectura.md#modelo-d
 
 ## CORS
 
-La API acepta peticiones del navegador solo desde `CORS_ORIGIN` (por omisión `http://localhost:5173`). Si el panel corre en otro puerto o dominio, cambia esa variable en `backend/.env` (sin `/` al final; la API la quita si la pones) y reinicia la API. `VITE_API_URL` del panel debe apuntar a la API.
+La API acepta peticiones del navegador solo desde los orígenes de `CORS_ORIGIN`, separados por comas (por omisión `http://localhost:5173,http://127.0.0.1:5173`: el navegador los trata como orígenes distintos). Si el panel corre en otro puerto o dominio, agrégalo a esa variable en `backend/.env` (la API quita los espacios y la `/` final) y reinicia la API. `VITE_API_URL` del panel debe apuntar a la API.
+
+Si una pantalla del panel no puede cargar sus datos, muestra qué falló y el botón «Reintentar». Para seguir las peticiones, mira la terminal de la API: registra cada una con método, ruta, código y tiempo (`GET /api/services 200 12ms`), nunca encabezados, cuerpos ni tokens. Si una petición del panel no aparece ahí, no llegó a la API (revisa `VITE_API_URL`).
 
 ## Documentación
 

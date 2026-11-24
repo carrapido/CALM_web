@@ -1,16 +1,18 @@
-import { useId } from 'react'
+import { useId, type ReactNode } from 'react'
 import type { CalendarDate } from '../utils/calendar-date'
 import { capitalize, formatLongDate } from '../utils/format'
 
 type BlockedDaysProps = {
   // undefined while loading.
   dates: CalendarDate[] | undefined
+  // A <LoadError> when the dates failed to load, shown instead of them.
+  loadError: ReactNode
   onUnblock: (date: CalendarDate) => void
 }
 
 // Blocking lives in the agenda, on the day itself: a button here would leave Mi horario
 // and drop any unsaved hours without warning.
-export function BlockedDays({ dates, onUnblock }: BlockedDaysProps) {
+export function BlockedDays({ dates, loadError, onUnblock }: BlockedDaysProps) {
   const headingId = useId()
 
   return (
@@ -24,7 +26,7 @@ export function BlockedDays({ dates, onUnblock }: BlockedDaysProps) {
         </h3>
         <p className="text-body-md text-on-surface-variant">Esos días tus clientes no pueden agendar.</p>
       </div>
-      <BlockedDayList dates={dates} labelledBy={headingId} onUnblock={onUnblock} />
+      <BlockedDayList dates={dates} loadError={loadError} labelledBy={headingId} onUnblock={onUnblock} />
       <p className="text-body-md text-on-surface-variant">
         Para bloquear un día, ábrelo en la agenda y toca «Bloquear este día».
       </p>
@@ -34,11 +36,13 @@ export function BlockedDays({ dates, onUnblock }: BlockedDaysProps) {
 
 type BlockedDayListProps = {
   dates: CalendarDate[] | undefined
+  loadError: ReactNode
   labelledBy: string
   onUnblock: (date: CalendarDate) => void
 }
 
-function BlockedDayList({ dates, labelledBy, onUnblock }: BlockedDayListProps) {
+function BlockedDayList({ dates, loadError, labelledBy, onUnblock }: BlockedDayListProps) {
+  if (loadError) return loadError
   if (dates === undefined) return <p className="text-on-surface-variant">Cargando los días…</p>
   if (dates.length === 0) return <p className="text-title-md text-on-surface">No tienes días bloqueados.</p>
 

@@ -2,6 +2,7 @@ import type { AgendaRepository } from '../services/agenda-repository'
 import { todayInCancun, type CalendarDate } from '../utils/calendar-date'
 import { weekAgenda, weekDates } from '../utils/week-agenda'
 import { useQuery } from '../hooks/useQuery'
+import { LoadError } from './LoadError'
 import { WeekView } from './WeekView'
 
 type WeekAgendaContainerProps = {
@@ -18,10 +19,16 @@ export function WeekAgendaContainer({
   onChooseDay,
 }: WeekAgendaContainerProps) {
   const dates = weekDates(date)
-  const { data } = useQuery(dates[0], () => loadWeek(repository, dates))
+  const { data, error, reload } = useQuery(dates[0], () => loadWeek(repository, dates))
 
   return (
-    <WeekView dates={dates} days={data} today={todayInCancun(now())} onChooseDay={onChooseDay} />
+    <WeekView
+      dates={dates}
+      days={data}
+      loadError={error !== undefined && <LoadError error={error} onRetry={reload} />}
+      today={todayInCancun(now())}
+      onChooseDay={onChooseDay}
+    />
   )
 }
 

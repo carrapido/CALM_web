@@ -2,6 +2,7 @@ import { useQuery } from '../hooks/useQuery'
 import type { CatalogRepository } from '../services/catalog-repository'
 import type { Service, ServiceDetails } from '../types/service'
 import { serviceProblems, type ServiceDraft } from '../utils/service-draft'
+import { LoadError } from './LoadError'
 import { ServiceForm } from './ServiceForm'
 
 type ServiceFormContainerProps = {
@@ -20,7 +21,7 @@ const NEW_SERVICE_DRAFT: ServiceDraft = {
 
 export function ServiceFormContainer({ repository, service, onDone }: ServiceFormContainerProps) {
   // Every service, active or not, so a new name never repeats a deactivated one.
-  const { data: services } = useQuery('services', () => repository.services())
+  const { data: services, error, reload } = useQuery('services', () => repository.services())
 
   const save = (details: ServiceDetails) => {
     const saved = service
@@ -29,6 +30,7 @@ export function ServiceFormContainer({ repository, service, onDone }: ServiceFor
     saved.then(onDone)
   }
 
+  if (error !== undefined) return <LoadError error={error} onRetry={reload} className="mt-space-lg" />
   if (services === undefined) return <p className="mt-space-lg text-on-surface-variant">Cargando…</p>
   return (
     <ServiceForm

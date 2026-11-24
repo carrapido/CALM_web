@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { CalendarDate } from '../utils/calendar-date'
 import { PeriodChanger } from './PeriodChanger'
 import type { Appointment } from '../types/appointment'
@@ -26,13 +26,15 @@ type DayViewProps = {
   // "HH:MM" in Cancún, for the "Ahora" line of today.
   currentTime: string
   agenda: DayAgenda | undefined
+  // A <LoadError> when the agenda failed to load, shown instead of it.
+  loadError: ReactNode
   navigation: DayNavigation
   actions: DayActions
 }
 
 // The day's slots beside the chosen appointment's detail. Below the split width (the
 // @container's @3xl) the detail is a screen of its own: the day's controls step aside.
-export function DayView({ date, isToday, isPast, currentTime, agenda, navigation, actions }: DayViewProps) {
+export function DayView({ date, isToday, isPast, currentTime, agenda, loadError, navigation, actions }: DayViewProps) {
   const [chosenTicket, setChosenTicket] = useState<string>()
   const chosen = agenda && appointmentWithTicket(agenda, chosenTicket)
   const hiddenBesideDetail = chosen ? '@max-3xl:hidden' : ''
@@ -51,7 +53,9 @@ export function DayView({ date, isToday, isPast, currentTime, agenda, navigation
           onNext={navigation.onNextDay}
         />
       </div>
-      {agenda === undefined ? (
+      {loadError ? (
+        loadError
+      ) : agenda === undefined ? (
         <p className="text-on-surface-variant">Cargando la agenda…</p>
       ) : (
         <div className="flex flex-col gap-7 @3xl:flex-row @3xl:items-start">
