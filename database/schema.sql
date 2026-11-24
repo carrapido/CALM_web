@@ -13,9 +13,9 @@
 --     en Supabase esos objetos ya existen y no se tocan.
 --   * Deja RLS activado en todas las tablas, pero solo incluye la política que el panel
 --     necesita para iniciar sesión ("An admin reads her own row"), y solo si existe el rol
---     `authenticated` de Supabase. Las políticas y funciones de la app móvil
---     (booking_calendar, cancel_my_appointment, claim_nip_attempt, ...) quedan en las
---     migraciones.
+--     `authenticated` de Supabase. De la app móvil solo trae las funciones que la API llama
+--     (claim_nip_attempt, orphaned_auth_user_id, booking_calendar), sin permisos para
+--     anon ni authenticated; sus políticas quedan en las migraciones.
 --   * La API entra con el rol dueño de las tablas (postgres), que no aplica RLS: su guardia
 --     es backend/src/middlewares/auth.middleware.ts.
 --
@@ -35,7 +35,9 @@ begin
     create schema if not exists auth;
     create table auth.users (
       id uuid primary key,
-      email text unique
+      email text unique,
+      -- Solo la llave de servicio lo escribe; orphaned_auth_user_id lee client_id de aquí.
+      raw_app_meta_data jsonb
     );
   end if;
 
@@ -213,5 +215,109 @@ begin
   end if;
 end
 $$;
+
+-- -------------------------------------------------------------------------------------
+-- 5. Funciones de la app móvil que llama la API (backend/src/repositories/client-app.repository.ts)
+-- -------------------------------------------------------------------------------------
+
+-- Cuenta una revisión de NIP contra el celular antes de hacerla: cinco por celular hasta que
+-- un NIP correcto las borra; la quinta bloquea quince minutos. Una sola sentencia que bloquea
+-- la fila del celular, para que intentos simultáneos no se salten la cuenta.
+create function public.claim_nip_attempt(p_phone text)
+returns boolean
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  claimed integer;
+begin
+  insert into public.sign_in_attempts as attempt (phone, failures, locked_until)
+  values (p_phone, 1, null)
+  on conflict (phone) do update set
+    failures = case
+      when attempt.locked_until <= now() then 1
+      else attempt.failures + 1
+    end,
+    locked_until = case
+      when attempt.locked_until <= now() then null
+      when attempt.locked_until is null and attempt.failures + 1 >= 5
+        then now() + interval '15 minutes'
+      else attempt.locked_until
+    end
+  returning failures into claimed;
+  return claimed <= 5;
+end;
+$$;
+
+-- El usuario de Auth que una petición anterior creó para esta misma clienta y no alcanzó a
+-- ligar; solo si su app_metadata dice que es de ella y ningún cliente lo tiene.
+create function public.orphaned_auth_user_id(p_email text, p_client_id bigint)
+returns uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select u.id
+    from auth.users u
+   where u.email = lower(p_email)
+     and u.raw_app_meta_data ->> 'client_id' = p_client_id::text
+     and not exists (select 1 from public.clients c where c.user_id = u.id);
+$$;
+
+-- Lo que la app necesita para agendar este mes y el siguiente: horario, días bloqueados y
+-- espacios ocupados (sin decir de quién), con "hoy" y "ahora" en el reloj de Cancún.
+create function public.booking_calendar()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  with clock as (
+    select (now() at time zone 'America/Cancun') as moment
+  ),
+  bounds as (
+    select
+      moment::date as today,
+      moment::time as now_time,
+      -- El primer día después del mes siguiente.
+      (date_trunc('month', moment) + interval '2 months')::date as horizon
+    from clock
+  )
+  select jsonb_build_object(
+    'today', b.today,
+    'now', to_char(b.now_time, 'HH24:MI'),
+    'weekly', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+        'weekday', w.weekday,
+        'opens_at', to_char(w.opens_at, 'HH24:MI'),
+        'closes_at', to_char(w.closes_at, 'HH24:MI')
+      )), '[]'::jsonb)
+      from public.weekly_schedule w
+    ),
+    'blocked', (
+      select coalesce(jsonb_agg(d.blocked_date order by d.blocked_date), '[]'::jsonb)
+      from public.blocked_dates d
+      where d.blocked_date >= b.today and d.blocked_date < b.horizon
+    ),
+    'booked', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+        'date', a.scheduled_date,
+        'time', to_char(a.scheduled_time, 'HH24:MI')
+      ) order by a.scheduled_date, a.scheduled_time), '[]'::jsonb)
+      from public.appointments a
+      where a.scheduled_date >= b.today and a.scheduled_date < b.horizon
+    )
+  )
+  from bounds b;
+$$;
+
+-- Solo la API, que entra como dueña de las funciones, las llama.
+revoke execute on function public.claim_nip_attempt(text) from public;
+revoke execute on function public.orphaned_auth_user_id(text, bigint) from public;
+revoke execute on function public.booking_calendar() from public;
 
 commit;

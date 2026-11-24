@@ -8,11 +8,13 @@ import { Pool } from 'pg'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { adminRepository } from '../src/repositories/admin.repository.js'
 import { agendaRepository } from '../src/repositories/agenda.repository.js'
+import { clientAppRepository } from '../src/repositories/client-app.repository.js'
 import { clientRepository } from '../src/repositories/client.repository.js'
 import { orderRepository } from '../src/repositories/order.repository.js'
 import { serviceRepository } from '../src/repositories/service.repository.js'
 import type { WeeklySchedule } from '../src/types/agenda.js'
 import type { NewOrder } from '../src/types/order.js'
+import { nipMatches } from '../src/utils/nip.js'
 
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL
 const ADMIN_ID = '00000000-0000-4000-8000-000000000001'
@@ -63,6 +65,19 @@ describe.skipIf(TEST_DATABASE_URL === undefined)('The SQL repositories on a thro
   async function signInAttemptPhones(): Promise<string[]> {
     const { rows } = await pool.query<{ phone: string }>('select phone from sign_in_attempts order by phone')
     return rows.map((row) => row.phone)
+  }
+
+  async function cancunToday(): Promise<string> {
+    const { rows } = await pool.query<{ day: string }>("select ((now() at time zone 'America/Cancun')::date)::text as day")
+    return rows[0]?.day ?? ''
+  }
+
+  // The first Monday at least 8 days ahead: past the seeded appointments and the blocked day.
+  async function freeMonday(): Promise<string> {
+    const { rows } = await pool.query<{ day: string }>(
+      'select (current_date + 8 + (8 - extract(isodow from current_date + 8)::int) % 7)::text as day',
+    )
+    return rows[0]?.day ?? ''
   }
 
   async function lockOut(...phones: string[]): Promise<void> {
@@ -332,6 +347,192 @@ describe.skipIf(TEST_DATABASE_URL === undefined)('The SQL repositories on a thro
       expect(await orders.updateActive('3388', changes)).toBeNull()
       const delivered = (await orders.all()).find((order) => order.ticket === '3388')
       expect(delivered).toEqual(before.find((order) => order.ticket === '3388'))
+    })
+  })
+
+  describe('client app', () => {
+    const ANA = { id: '1', name: 'Ana López', phone: '9980000001' }
+    const ANA_USER = '00000000-0000-4000-8000-000000000021'
+
+    async function addAuthUser(id: string, email: string, clientId: number): Promise<void> {
+      await pool.query(
+        'insert into auth.users (id, email, raw_app_meta_data) values ($1, $2, $3)',
+        [id, email, { client_id: clientId }],
+      )
+    }
+
+    async function statusOfOrder(ticket: string): Promise<string | undefined> {
+      const { rows } = await pool.query<{ status: string }>('select status from orders where ticket = $1', [ticket])
+      return rows[0]?.status
+    }
+
+    it('allows five NIP checks per phone, refuses the sixth, and starts again once cleared', async () => {
+      const clientApp = clientAppRepository(pool)
+      const claims: boolean[] = []
+      for (let attempt = 0; attempt < 6; attempt++) claims.push(await clientApp.claimNipAttempt(ANA.phone))
+
+      expect(claims).toEqual([true, true, true, true, true, false])
+      await clientApp.clearSignInAttempts(ANA.phone)
+      expect(await signInAttemptPhones()).toEqual([])
+      expect(await clientApp.claimNipAttempt(ANA.phone)).toBe(true)
+    })
+
+    it('reads the credentials of a phone, with the hash of the seeded test NIP', async () => {
+      const clientApp = clientAppRepository(pool)
+
+      const ana = await clientApp.credentialsOf(ANA.phone)
+
+      expect(ana).toMatchObject({ client: ANA, userId: null })
+      expect(await nipMatches('1234', ana?.nipHash ?? null)).toBe(true)
+      expect(await clientApp.credentialsOf('9980009999')).toBeNull()
+    })
+
+    it('links her auth user and then finds her by it', async () => {
+      const clientApp = clientAppRepository(pool)
+      await addAuthUser(ANA_USER, '9980000001@clients.calm.app', 1)
+
+      expect(await clientApp.signedInClient(ANA_USER)).toBeNull()
+      await clientApp.linkAuthUser('1', ANA_USER)
+      expect(await clientApp.signedInClient(ANA_USER)).toEqual(ANA)
+      expect(await clientApp.signedInClient(ADMIN_ID)).toBeNull()
+    })
+
+    it('hands back only her own unlinked auth user', async () => {
+      const clientApp = clientAppRepository(pool)
+      const email = '9980000001@clients.calm.app'
+      await addAuthUser(ANA_USER, email, 1)
+
+      expect(await clientApp.orphanedAuthUserId(email, '1')).toBe(ANA_USER)
+      expect(await clientApp.orphanedAuthUserId(email, '2')).toBeNull()
+      await clientApp.linkAuthUser('1', ANA_USER)
+      expect(await clientApp.orphanedAuthUserId(email, '1')).toBeNull()
+    })
+
+    it('lists the active services by id, the urgent charge included', async () => {
+      const services = await clientAppRepository(pool).activeServices()
+
+      expect(services.map((service) => service.id)).toEqual(['1', '2', '3', '4', '5', '7'])
+      expect(services[0]).toEqual({ id: '1', name: 'Dobladillo de pantalón', category: 'arreglo', basePriceMxn: 80 })
+      expect(services.at(-1)).toEqual({ id: '7', name: 'Prenda urgente', category: 'extra', basePriceMxn: 100 })
+    })
+
+    it('answers the booking calendar from today on, without saying who booked', async () => {
+      const calendar = await clientAppRepository(pool).bookingCalendar()
+      const today = await cancunToday()
+
+      expect(calendar.today).toBe(today)
+      expect(calendar.now).toMatch(/^\d{2}:\d{2}$/)
+      expect(calendar.weekly).toHaveLength(7)
+      expect(calendar.weekly).toContainEqual({ weekday: 'monday', opensAt: '09:00', closesAt: '18:00' })
+      expect(calendar.weekly).toContainEqual({ weekday: 'sunday', opensAt: null, closesAt: null })
+      expect(calendar.blocked).toEqual([await dayFromToday(6)])
+      expect(calendar.booked).toContainEqual({ date: await dayFromToday(1), time: '12:00' })
+      expect(calendar.booked.every((slot) => slot.date >= today)).toBe(true)
+    })
+
+    it('reads her own orders by delivery date and her appointments with their services', async () => {
+      const mine = await clientAppRepository(pool).ordersOf('1')
+
+      expect(mine.orders).toEqual([
+        { ticket: '6042', work: 'Parche en rodilla', status: 'onTheWay', finalPriceMxn: 40, deliveryDate: await dayFromToday(0) },
+        { ticket: '0427', work: 'Dobladillo y cambio de cierre', status: 'inProgress', finalPriceMxn: 200, deliveryDate: await dayFromToday(3) },
+      ])
+      expect(mine.appointments).toEqual([{
+        ticket: '0427', date: await dayFromToday(-2), time: '10:30', preliminaryTotalMxn: 200,
+        services: ['Dobladillo de pantalón', 'Cambio de cierre'], hasOrder: true,
+      }])
+    })
+
+    it('opens a slot only within the hours of an open, unblocked and free day', async () => {
+      const clientApp = clientAppRepository(pool)
+      const monday = await freeMonday()
+      const sunday = (await pool.query<{ day: string }>('select ($1::date + 6)::text as day', [monday])).rows[0]?.day ?? ''
+
+      expect(await clientApp.isSlotOpen(monday, '09:00')).toBe(true)
+      expect(await clientApp.isSlotOpen(monday, '17:30')).toBe(true)
+      expect(await clientApp.isSlotOpen(monday, '08:30')).toBe(false)
+      expect(await clientApp.isSlotOpen(monday, '18:00')).toBe(false)
+      expect(await clientApp.isSlotOpen(sunday, '10:00')).toBe(false)
+      expect(await clientApp.isSlotOpen(await dayFromToday(1), '12:00')).toBe(false)
+      await agendaRepository(pool).blockDay(monday, ADMIN_ID)
+      expect(await clientApp.isSlotOpen(monday, '09:00')).toBe(false)
+    })
+
+    it('books the appointment and its services together, with a free ticket', async () => {
+      const clientApp = clientAppRepository(pool)
+      const monday = await freeMonday()
+
+      const booked = await clientApp.book({ clientId: '3', date: monday, time: '10:00', totalMxn: 180, serviceIds: ['1', '7'] })
+
+      expect(booked).toMatchObject({ ticket: expect.stringMatching(/^\d{4}$/) })
+      const ticket = typeof booked === 'string' ? '' : booked.ticket
+      expect(['0815', '1503', '2210', '0427', '5310', '1290', '6042']).not.toContain(ticket)
+      const appointments = await agendaRepository(pool).appointmentsBetween(monday, monday)
+      expect(appointments).toEqual([{
+        ticket, clientName: 'Lucía Méndez', whatsapp: '9980000003', date: monday, time: '10:00',
+        quote: { services: ['Dobladillo de pantalón', 'Prenda urgente'], preliminaryTotalMxn: 180 },
+      }])
+    })
+
+    it('answers slotTaken for a booked slot and leaves nothing behind', async () => {
+      const clientApp = clientAppRepository(pool)
+      const tomorrow = await dayFromToday(1)
+
+      expect(await clientApp.book({ clientId: '3', date: tomorrow, time: '12:00', totalMxn: 80, serviceIds: ['1'] })).toBe('slotTaken')
+      expect(await countOf('appointments')).toBe(5)
+      expect(await countOf('appointment_services')).toBe(7)
+    })
+
+    it('rolls the appointment back when a service cannot be linked', async () => {
+      const monday = await freeMonday()
+
+      await expect(clientAppRepository(pool).book({ clientId: '3', date: monday, time: '10:00', totalMxn: 80, serviceIds: ['99'] }))
+        .rejects.toMatchObject({ code: '23503' })
+      expect(await countOf('appointments')).toBe(5)
+    })
+
+    it('cancels her appointment more than 24 hours ahead and nothing else', async () => {
+      const clientApp = clientAppRepository(pool)
+      const today = await cancunToday()
+      const later = await dayFromToday(10)
+      await pool.query(
+        `insert into appointments (client_id, ticket, scheduled_date, scheduled_time, preliminary_total_mxn) values
+          (3, '4001', $1, '10:00', 80), (3, '4002', $2, '23:30', 80), (1, '4003', $1, '11:00', 80)`,
+        [later, today],
+      )
+      await pool.query(
+        "insert into orders (client_id, appointment_id, ticket, work, final_price_mxn, delivery_date) select 1, id, '4003', 'Parche', 40, $1 from appointments where ticket = '4003'",
+        [later],
+      )
+
+      expect(await clientApp.cancelAppointment('1', '4001')).toBe(false)
+      expect(await clientApp.cancelAppointment('3', '4002')).toBe(false)
+      expect(await clientApp.cancelAppointment('1', '4003')).toBe(false)
+      expect(await clientApp.cancelAppointment('3', '4001')).toBe(true)
+      expect(await clientApp.cancelAppointment('3', '4001')).toBe(false)
+      expect(await countOf('appointments')).toBe(7)
+    })
+
+    it('marks only her ready order on the way', async () => {
+      const clientApp = clientAppRepository(pool)
+
+      expect(await clientApp.markOnMyWay('1', '1290')).toBe(false)
+      expect(await clientApp.markOnMyWay('1', '0427')).toBe(false)
+      expect(await clientApp.markOnMyWay('2', '1290')).toBe(true)
+      expect(await statusOfOrder('1290')).toBe('onTheWay')
+      expect(await clientApp.markOnMyWay('2', '1290')).toBe(false)
+      expect(await statusOfOrder('0427')).toBe('inProgress')
+    })
+
+    it('changes her phone, keeps or replaces her NIP, and refuses a taken phone', async () => {
+      const clientApp = clientAppRepository(pool)
+
+      expect(await clientApp.updateProfile('1', { phone: '9980000002', nipHash: null })).toBe('phoneTaken')
+      expect(await clientApp.updateProfile('1', { phone: '9980000009', nipHash: null })).toEqual({ ...ANA, phone: '9980000009' })
+      expect(await nipMatches('1234', (await clientApp.credentialsOf('9980000009'))?.nipHash ?? null)).toBe(true)
+      await clientApp.updateProfile('1', { phone: '9980000009', nipHash: NIP_HASH })
+      expect((await clientApp.credentialsOf('9980000009'))?.nipHash).toBe(NIP_HASH)
+      expect(await clientApp.credentialsOf(ANA.phone)).toBeNull()
     })
   })
 })

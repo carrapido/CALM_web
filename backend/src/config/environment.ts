@@ -7,7 +7,8 @@ export type Environment = {
   databaseSslCa?: string
   supabaseUrl: string
   supabasePublishableKey: string
-  // Lets the server rename a client's auth email when her phone changes; never sent to the panel.
+  // Lets the server create a client's auth user, mint her app session and rename her auth email
+  // when her phone changes; never sent to the panel or the app.
   supabaseServiceRoleKey: string
   // The panel's origins, separated by commas.
   corsOrigin: string
