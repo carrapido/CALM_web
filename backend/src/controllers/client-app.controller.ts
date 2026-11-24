@@ -17,6 +17,7 @@ const SIGN_IN_PROBLEM = 'Escribe tu celular a 10 dígitos y tu NIP.'
 // The wording of Perfil's own form, so a refusal reads the same whoever catches it.
 const PHONE_SHORT = new HttpError(400, 'phone', 'Escribe tu celular a 10 dígitos.')
 const PHONE_TAKEN = new HttpError(409, 'phone_taken', 'Ese celular ya lo usa otra cuenta.')
+const CURRENT_NIP_MISSING = new HttpError(400, 'current_nip', 'Escribe tu NIP actual para cambiar tu celular.')
 const CURRENT_NIP_WRONG = new HttpError(401, 'current_nip', 'Tu NIP actual no coincide.')
 const NEW_NIP_SHORT = new HttpError(400, 'new_nip', 'El NIP nuevo necesita 4 dígitos.')
 const NEW_NIP_SAME = new HttpError(400, 'new_nip', 'El NIP nuevo debe ser distinto del actual.')
@@ -71,21 +72,25 @@ export function clientAppController({ clientApp, clientSessions, authAccounts }:
       res.status(204).send()
     },
 
-    // Her auth user is named after her phone; it changes only once the database has the new one.
+    // Changing the phone or the NIP takes her current NIP, checked once for both. Her auth user is
+    // named after her phone; it changes only once the database has the new one.
     async updateProfile(req: Request, res: Response): Promise<void> {
       const client = signedInClientOf(req)
-      const fields = isRecord(req.body) ? req.body : {}
-      const phone = digitsOf(fields.phone)
-      if (!PHONE_PATTERN.test(phone)) throw PHONE_SHORT
-      const nipHash = await newNipHashOf(clientApp, client, digitsOf(fields.currentNip), digitsOf(fields.newNip))
-      if (phone === client.phone && nipHash === null) {
+      const { phone, currentNip, newNip } = profileFieldsOf(req.body)
+      const isPhoneChanging = phone !== client.phone
+      // Without a phone change, a current NIP alone still asks for the new one, as before.
+      const isNipChanging = newNip !== '' || (currentNip !== '' && !isPhoneChanging)
+      if (isPhoneChanging && currentNip === '') throw CURRENT_NIP_MISSING
+      if (isPhoneChanging || isNipChanging) await checkCurrentNip(clientApp, client, currentNip)
+      const nipHash = isNipChanging ? await newNipHashOf(currentNip, newNip) : null
+      if (!isPhoneChanging && nipHash === null) {
         res.json({ client: accountOf(client) })
         return
       }
 
       const updated = await clientApp.updateProfile(client.id, { phone, nipHash })
       if (updated === 'phoneTaken') throw PHONE_TAKEN
-      if (phone !== client.phone) await authAccounts.updateEmail(client.userId, authEmailOf(phone))
+      if (isPhoneChanging) await authAccounts.updateEmail(client.userId, authEmailOf(phone))
       res.json({ client: updated })
     },
   }
@@ -113,18 +118,25 @@ function ticketParamOf(req: Request): string {
   return typeof ticket === 'string' ? ticket : ''
 }
 
-// Null when she keeps her NIP. The current one is checked under the throttle of the phone she
-// signs in with, before the new one is accepted.
-async function newNipHashOf(
+function profileFieldsOf(body: unknown): { phone: string; currentNip: string; newNip: string } {
+  const fields = isRecord(body) ? body : {}
+  const phone = digitsOf(fields.phone)
+  if (!PHONE_PATTERN.test(phone)) throw PHONE_SHORT
+  return { phone, currentNip: digitsOf(fields.currentNip), newNip: digitsOf(fields.newNip) }
+}
+
+// Under the throttle of the phone she signs in with, before anything changes.
+async function checkCurrentNip(
   clientApp: ClientAppRepository,
   client: SignedInClient,
   currentNip: string,
-  newNip: string,
-): Promise<string | null> {
-  if (currentNip === '' && newNip === '') return null
+): Promise<void> {
   const stored = await clientApp.credentialsOf(client.phone)
   if (!(await isNipRight(clientApp, client.phone, currentNip, stored?.nipHash ?? null))) throw CURRENT_NIP_WRONG
   await clientApp.clearSignInAttempts(client.phone)
+}
+
+async function newNipHashOf(currentNip: string, newNip: string): Promise<string> {
   if (!NIP_PATTERN.test(newNip)) throw NEW_NIP_SHORT
   if (newNip === currentNip) throw NEW_NIP_SAME
   return hashNip(newNip)

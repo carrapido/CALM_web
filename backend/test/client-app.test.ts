@@ -482,21 +482,76 @@ describe('PUT /api/client/profile', () => {
     expect(authAccounts.emailChanges).toEqual([])
   })
 
-  it('changes her phone and renames her auth email', async () => {
+  it('changes her phone after checking her current NIP, renames her auth email and clears her checks', async () => {
     const { app, clientApp, authAccounts } = buildClientApp()
 
-    const response = await request(app).put('/api/client/profile').set(asClient()).send({ phone: '998 999-0000' })
+    const response = await request(app).put('/api/client/profile').set(asClient())
+      .send({ phone: '998 999-0000', currentNip: '1234' })
 
     expect(response.status).toBe(200)
     expect(response.body).toEqual({ client: { ...PUBLIC_ROSA, phone: NEW_PHONE } })
     expect(clientApp.stored('1')?.phone).toBe(NEW_PHONE)
+    expect(clientApp.stored('1')?.nipHash).toBe(ROSA.nipHash)
+    expect(authAccounts.emailChanges).toEqual([{ userId: CLIENT_USER_ID, email: '9989990000@clients.calm.app' }])
+    expect(clientApp.nipChecksOn(ROSA.phone)).toBe(0)
+  })
+
+  it('answers 400 current_nip for a new phone without her current NIP, without a check, and changes nothing', async () => {
+    const { app, clientApp, authAccounts } = buildClientApp()
+
+    const response = await request(app).put('/api/client/profile').set(asClient()).send({ phone: NEW_PHONE })
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({ error: 'Escribe tu NIP actual para cambiar tu celular.', code: 'current_nip' })
+    expect(clientApp.stored('1')?.phone).toBe(ROSA.phone)
+    expect(clientApp.nipChecksOn(ROSA.phone)).toBe(0)
+    expect(authAccounts.emailChanges).toEqual([])
+  })
+
+  it('answers 401 current_nip for a new phone with a wrong NIP, counts the check and changes nothing', async () => {
+    const { app, clientApp, authAccounts } = buildClientApp()
+
+    const response = await request(app).put('/api/client/profile').set(asClient())
+      .send({ phone: NEW_PHONE, currentNip: '0000' })
+
+    expect(response.status).toBe(401)
+    expect(response.body).toEqual({ error: 'Tu NIP actual no coincide.', code: 'current_nip' })
+    expect(clientApp.stored('1')?.phone).toBe(ROSA.phone)
+    expect(clientApp.nipChecksOn(ROSA.phone)).toBe(1)
+    expect(authAccounts.emailChanges).toEqual([])
+  })
+
+  it('answers 429 for a new phone while her current phone is locked out, and changes nothing', async () => {
+    const { app, clientApp, authAccounts } = buildClientApp()
+    clientApp.lockOut(ROSA.phone)
+
+    const response = await request(app).put('/api/client/profile').set(asClient())
+      .send({ phone: NEW_PHONE, currentNip: '1234' })
+
+    expect(response.status).toBe(429)
+    expect(response.body).toEqual(THROTTLED)
+    expect(clientApp.stored('1')?.phone).toBe(ROSA.phone)
+    expect(authAccounts.emailChanges).toEqual([])
+  })
+
+  it('changes her phone and her NIP with a single check of the current one', async () => {
+    const { app, clientApp, authAccounts } = buildClientApp()
+    for (let attempt = 0; attempt < 4; attempt++) await clientApp.claimNipAttempt(ROSA.phone)
+
+    const response = await request(app).put('/api/client/profile').set(asClient())
+      .send({ phone: NEW_PHONE, currentNip: '1234', newNip: '5678' })
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ client: { ...PUBLIC_ROSA, phone: NEW_PHONE } })
+    expect(await argon2Verify({ password: '5678', hash: clientApp.stored('1')?.nipHash ?? '' })).toBe(true)
     expect(authAccounts.emailChanges).toEqual([{ userId: CLIENT_USER_ID, email: '9989990000@clients.calm.app' }])
   })
 
   it('answers 409 phone_taken for another client\'s phone and changes nothing', async () => {
     const { app, clientApp, authAccounts } = buildClientApp()
 
-    const response = await request(app).put('/api/client/profile').set(asClient()).send({ phone: LUCIA.phone })
+    const response = await request(app).put('/api/client/profile').set(asClient())
+      .send({ phone: LUCIA.phone, currentNip: '1234' })
 
     expect(response.status).toBe(409)
     expect(response.body).toEqual({ error: 'Ese celular ya lo usa otra cuenta.', code: 'phone_taken' })

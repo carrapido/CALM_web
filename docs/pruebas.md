@@ -12,7 +12,7 @@ Resultado observado (sin `TEST_DATABASE_URL`, así que las pruebas de SQL se sal
 
 ```text
  Test Files  10 passed | 1 skipped (11)
-      Tests  285 passed | 43 skipped (328)
+      Tests  289 passed | 43 skipped (332)
 ```
 
 | Archivo | Pruebas | Qué cubre |
@@ -23,7 +23,7 @@ Resultado observado (sin `TEST_DATABASE_URL`, así que las pruebas de SQL se sal
 | `clients.test.ts` | 34 | Clientes y hash del NIP. |
 | `agenda.test.ts` | 45 | Horario, días bloqueados y citas. |
 | `orders.test.ts` | 44 | Pedidos. |
-| `client-app.test.ts` | 82 | API de la app de clientas (`/api/client/*`): guardia de la clienta, inicio de sesión, límite de intentos, lecturas, agendar, cancelar, «Voy en camino» y perfil. |
+| `client-app.test.ts` | 86 | API de la app de clientas (`/api/client/*`): guardia de la clienta, inicio de sesión, límite de intentos, lecturas, agendar, cancelar, «Voy en camino» y perfil. |
 | `supabase-auth.test.ts` | 7 | Cómo se interpreta la respuesta de Supabase Auth al verificar un token. |
 | `supabase-sessions.test.ts` | 3 | Cómo la API crea el usuario de Auth de una clienta y le abre una sesión (refresh token). |
 | `database.test.ts` | 1 | Una conexión inactiva que se cae no tumba el servidor. |
@@ -168,8 +168,12 @@ Las pruebas de `client-app.test.ts` usan tres clientas en memoria: Rosa (NIP `12
 | Cancelar la de otra | El `0815` es de Lucía | 409 `appointment_not_cancellable`; no borra | ✅ 409 | client-app › DELETE /api/client/appointments/:ticket › answers 409 appointment_not_cancellable for %s |
 | Voy en camino | `POST /api/client/orders/1290/on-my-way` (suyo, listo) | 204; pasa a `onTheWay` | ✅ 204 | client-app › POST /api/client/orders/:ticket/on-my-way › marks her ready order on the way and answers 204 |
 | Pedido no listo o de otra | `1290` sin estar listo, o listo pero de Lucía | 409 `order_not_ready`; no cambia | ✅ 409 | client-app › POST /api/client/orders/:ticket/on-my-way › answers 409 order_not_ready for %s |
-| Cambiar celular | `PUT /api/client/profile` `{"phone":"998 999-0000"}` | 200; renombra su correo de Auth | ✅ 200 | client-app › PUT /api/client/profile › changes her phone and renames her auth email |
-| Celular de otra | `{"phone":"9987654321"}` | 409 `phone_taken`; no cambia ni renombra | ✅ 409 | client-app › PUT /api/client/profile › answers 409 phone_taken for another client's phone and changes nothing |
+| Cambiar celular | `PUT /api/client/profile` `{"phone":"998 999-0000","currentNip":"1234"}` | 200; renombra su correo de Auth; borra sus intentos | ✅ 200 | client-app › PUT /api/client/profile › changes her phone after checking her current NIP, renames her auth email and clears her checks |
+| Celular nuevo sin NIP | `{"phone":"9989990000"}` | 400 `current_nip` `Escribe tu NIP actual para cambiar tu celular.`; no cuenta intento; no cambia ni renombra | ✅ 400 | client-app › PUT /api/client/profile › answers 400 current_nip for a new phone without her current NIP, without a check, and changes nothing |
+| Celular nuevo con NIP incorrecto | `{"phone":"9989990000","currentNip":"0000"}` | 401 `current_nip`; cuenta un intento; no cambia ni renombra | ✅ 401 | client-app › PUT /api/client/profile › answers 401 current_nip for a new phone with a wrong NIP, counts the check and changes nothing |
+| Celular nuevo con su celular bloqueado | `{"phone":"9989990000","currentNip":"1234"}` con su celular bloqueado | 429 `throttled`; no cambia ni renombra | ✅ 429 | client-app › PUT /api/client/profile › answers 429 for a new phone while her current phone is locked out, and changes nothing |
+| Celular y NIP juntos | `{"phone":"9989990000","currentNip":"1234","newNip":"5678"}` con cuatro intentos ya contados | 200; un solo intento cubre los dos cambios | ✅ 200 | client-app › PUT /api/client/profile › changes her phone and her NIP with a single check of the current one |
+| Celular de otra | `{"phone":"9987654321","currentNip":"1234"}` | 409 `phone_taken`; no cambia ni renombra | ✅ 409 | client-app › PUT /api/client/profile › answers 409 phone_taken for another client's phone and changes nothing |
 | Celular corto | `{"phone":"99812"}` | 400 `phone` | ✅ 400 | client-app › PUT /api/client/profile › answers 400 phone for a short phone |
 | Cambiar NIP | `{"phone":"9981234567","currentNip":"1234","newNip":"5678"}` | 200; guarda el hash de `5678` | ✅ 200 | client-app › PUT /api/client/profile › stores a new NIP after checking the current one, and clears her checks |
 | NIP actual incorrecto | `currentNip: "0000"` | 401 `current_nip`; cuenta un intento; no cambia | ✅ 401 | client-app › PUT /api/client/profile › answers 401 current_nip for a wrong current NIP, counts the check and keeps her NIP |

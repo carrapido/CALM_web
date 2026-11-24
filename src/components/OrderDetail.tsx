@@ -17,6 +17,7 @@ import {
 } from '../utils/order'
 import { ACTIONS_TO_REACH, STATUS_LABELS, STEP_LABELS } from '../utils/order-labels'
 import { readyNoticeLink } from '../utils/ready-notice'
+import { WHATSAPP_TAB } from '../utils/whatsapp-link'
 
 export type MoveOrder = (order: Order, status: OrderStatus) => Promise<void>
 
@@ -158,7 +159,7 @@ function ReadyNotice({ order }: { order: Order }) {
   return (
     <a
       href={href}
-      target="_blank"
+      target={WHATSAPP_TAB}
       rel="noopener noreferrer"
       className={`${BUTTON_BASE_CLASSES} ${VARIANT_CLASSES.secondary}`}
     >

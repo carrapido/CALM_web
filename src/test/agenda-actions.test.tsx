@@ -68,7 +68,7 @@ describe('Order actions from the calendar', () => {
     const message =
       'Hola Carlos Ruiz, tu pedido con ticket 7720 ya está listo. Total: $150 MXN. Puedes pasar a recogerlo.'
     expect(notice).toHaveAttribute('href', `https://wa.me/529987654321?text=${encodeURIComponent(message)}`)
-    expect(notice).toHaveAttribute('target', '_blank')
+    expect(notice).toHaveAttribute('target', 'calm-whatsapp')
   })
 
   it('says when no order has the searched ticket, and "Cerrar búsqueda" brings the month back', async () => {
