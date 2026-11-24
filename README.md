@@ -46,24 +46,23 @@ Abre la URL que muestra Vite (por defecto `http://localhost:5173`).
 
 ## Estructura del proyecto
 
-El código sigue una arquitectura hexagonal organizada por módulos de negocio (*screaming architecture*):
+El código se organiza por tipo de archivo, con la misma forma que appVeterinaria:
 
 ```text
 src/
-├── app/         # Shell de la aplicación, layout y navegación por hash (#/agenda, #/pedidos, #/catalogo)
-├── agenda/      # Citas, horario y bloqueo de días
-├── orders/      # Pedidos y tickets
-├── catalog/     # Servicios del catálogo
-├── shared/      # Código compartido: dominio (fechas en hora de Cancún) y UI (átomos, moléculas, plantillas)
-└── test/        # Configuración de las pruebas
+├── App.tsx      # Acceso de la administradora, shell y navegación por hash (#/agenda, #/catalogo, #/clientes)
+├── main.tsx     # Punto de entrada: crea el cliente de Supabase y monta la aplicación
+├── index.css    # Design tokens de Tailwind v4
+├── pages/       # Pantallas: Agenda, Catálogo, Clientes e inicio de sesión
+├── components/  # Componentes de React (contenedores y presentacionales)
+├── services/    # Acceso a datos con Supabase: repositorios, sus interfaces, mapeo de filas y casos de uso
+├── types/       # Tipos de datos (cita, cliente, servicio, tipos de la base de datos)
+├── utils/       # Reglas de negocio puras, fechas en hora de Cancún y formatos
+├── hooks/       # Hooks de React (consultas, navegación, detalle elegido)
+└── test/        # Pruebas, kits de prueba, repositorios en memoria y configuración
 ```
 
-Cada módulo se divide en capas:
-
-- `domain/`: reglas de negocio puras, sin dependencias de React.
-- `application/`: puertos (interfaces de repositorio) y casos de uso.
-- `infrastructure/`: adaptadores. Por ahora son repositorios en memoria con datos de ejemplo, mientras se define la API.
-- `ui/`: componentes de React con el patrón contenedor-presentacional; los componentes compartidos siguen *atomic design*.
+Las secciones del panel son **Agenda**, **Catálogo** y **Clientes**.
 
 ## Estado actual
 

@@ -1,6 +1,6 @@
 # CALM design system
 
-Synced from `src/index.css` (Tailwind v4 `@theme`), `src/shared/ui/atoms/button-classes.ts`, `src/shared/ui/molecules/SegmentedControl.tsx` and `src/shared/ui/templates/PageFrame.tsx`. Apple-style tokens from the "Calm Redesign" canvas (`odd/tasks/apple-shell.md`).
+Synced from `src/index.css` (Tailwind v4 `@theme`), `src/utils/button-classes.ts`, `src/components/SegmentedControl.tsx` and `src/components/PageFrame.tsx`. Apple-style tokens from the "Calm Redesign" canvas (`odd/tasks/apple-shell.md`).
 
 ## Colors
 
