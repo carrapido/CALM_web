@@ -2,10 +2,17 @@ import { useState } from 'react'
 import type { Appointment } from '../../../agenda/domain/appointment'
 import type { CalendarDate } from '../../../shared/domain/calendar-date'
 import { SegmentedControl } from '../../../shared/ui/molecules/SegmentedControl'
-import { formatCount } from '../../../shared/ui/format'
 import { isActive, orderKey, type Order, type OrderStatus } from '../../domain/order'
 import { OrderDetail, type MoveOrder } from './OrderDetail'
 import { AppointmentRows } from './AppointmentRows'
+import { FinishedNotice } from './FinishedNotice'
+import {
+  finishedNotice,
+  noOrderWithTicket,
+  SEARCH_RESULTS_LABEL,
+  workshopSummary,
+  type WorkshopCounts,
+} from './order-listing'
 import { OrderRows } from './OrderRows'
 import { TicketSearch } from './TicketSearch'
 
@@ -15,11 +22,6 @@ export type OrdersFilter = 'workshop' | 'appointments' | 'finished'
 export type OrderListing =
   | { kind: OrdersFilter; orders: Order[] }
   | { kind: 'search'; ticket: string; orders: Order[] }
-
-export type WorkshopCounts = {
-  inWorkshop: number
-  ready: number
-}
 
 type OrdersViewProps = {
   today: CalendarDate
@@ -130,39 +132,14 @@ export function OrdersView({
   )
 }
 
-function finishedNotice({ clientName }: Order, status: OrderStatus): string {
-  const outcome = status === 'delivered' ? 'entregado' : 'cancelado'
-  return `Pedido de ${clientName} ${outcome}. Lo encuentras en Terminados.`
-}
-
-function workshopSummary({ inWorkshop, ready }: WorkshopCounts): string {
-  const summary = `${inWorkshop} en el taller`
-  if (ready === 0) return summary
-  return `${summary} · ${formatCount(ready, 'listo para recoger', 'listos para recoger')}`
-}
-
-// The live region stays in the page, empty, so the notice is announced when it appears.
-function FinishedNotice({ notice }: { notice: string | undefined }) {
-  return (
-    <p
-      role="status"
-      className={
-        notice ? 'rounded-xl bg-success-container px-5 py-4 text-title-md text-on-success-container' : 'sr-only'
-      }
-    >
-      {notice}
-    </p>
-  )
-}
-
 const LIST_LABELS: Record<OrderListing['kind'], string> = {
   workshop: 'Pedidos en el taller',
   appointments: 'Citas pendientes',
   finished: 'Pedidos terminados',
-  search: 'Resultados de la búsqueda',
+  search: SEARCH_RESULTS_LABEL,
 }
 
 function emptyText(listing: OrderListing): string {
-  if (listing.kind === 'search') return `No hay ningún pedido con el ticket ${listing.ticket}`
+  if (listing.kind === 'search') return noOrderWithTicket(listing.ticket)
   return listing.kind === 'finished' ? 'No hay pedidos terminados.' : 'No hay pedidos en el taller.'
 }

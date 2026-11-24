@@ -4,8 +4,9 @@ import type { CalendarDate } from '../../../shared/domain/calendar-date'
 import { useQuery } from '../../../shared/ui/useQuery'
 import { pendingAppointments } from '../../application/appointments-awaiting-order'
 import type { OrdersRepository } from '../../application/orders-repository'
-import { isActive, isReadyForPickup, type Order, type OrderStatus } from '../../domain/order'
-import { OrdersView, type OrderListing, type OrdersFilter, type WorkshopCounts } from './OrdersView'
+import { isActive, type Order, type OrderStatus } from '../../domain/order'
+import { withTicket, workshopCounts } from './order-listing'
+import { OrdersView, type OrderListing, type OrdersFilter } from './OrdersView'
 
 type OrdersContainerProps = {
   repository: OrdersRepository
@@ -45,11 +46,6 @@ export function OrdersContainer({ repository, agendaRepository, today }: OrdersC
   )
 }
 
-function workshopCounts(orders: Order[]): WorkshopCounts {
-  const inWorkshop = orders.filter(isActive)
-  return { inWorkshop: inWorkshop.length, ready: inWorkshop.filter(isReadyForPickup).length }
-}
-
 // A search shows every order with that ticket, whatever the filter.
 function listingOf(orders: Order[], filter: OrdersFilter, searchedTicket: string | undefined): OrderListing {
   if (searchedTicket !== undefined) {
@@ -58,12 +54,6 @@ function listingOf(orders: Order[], filter: OrdersFilter, searchedTicket: string
   if (filter === 'finished') return { kind: 'finished', orders: finishedNewestFirst(orders) }
   if (filter === 'appointments') return { kind: 'appointments', orders: [] }
   return { kind: 'workshop', orders: activeByDeliveryDate(orders) }
-}
-
-// Active orders first: a ticket is unique only among them.
-function withTicket(orders: Order[], ticket: string): Order[] {
-  const matches = orders.filter((order) => order.ticket === ticket)
-  return [...matches.filter(isActive), ...matches.filter((order) => !isActive(order))]
 }
 
 function finishedNewestFirst(orders: Order[]): Order[] {
