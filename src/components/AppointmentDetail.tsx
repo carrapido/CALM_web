@@ -6,6 +6,7 @@ import { ConfirmPanel } from './ConfirmPanel'
 import type { Appointment } from '../types/appointment'
 import { formatPesos } from '../utils/format'
 import { formatWhatsapp } from '../utils/format-agenda'
+import { WHATSAPP_TAB } from '../utils/whatsapp-link'
 import { whatsappReminderLink } from '../utils/whatsapp-reminder'
 
 type AppointmentDetailProps = {
@@ -108,7 +109,7 @@ function ReminderLink({ appointment }: { appointment: Appointment }) {
   return (
     <a
       href={href}
-      target="_blank"
+      target={WHATSAPP_TAB}
       rel="noopener noreferrer"
       className={`${BUTTON_BASE_CLASSES} ${VARIANT_CLASSES.primary}`}
     >

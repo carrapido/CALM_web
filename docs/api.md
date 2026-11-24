@@ -401,7 +401,7 @@ La app móvil (`calm_mobil`, Flutter) lee y escribe todo por estas rutas, igual 
 
 ### Límite de intentos de NIP
 
-Toda revisión de NIP (entrar, agendar con contacto, cambiar el NIP) primero reclama un intento con `claim_nip_attempt(celular)`, en una sola sentencia de Postgres. Se permiten **cinco** por celular; el quinto fallido lo bloquea **15 minutos**, y mientras tanto la API responde **429** `throttled` `Demasiados intentos. Espera unos minutos e inténtalo de nuevo.`, aun con el NIP correcto. Un NIP correcto borra los intentos de ese celular. Para un celular desconocido o sin NIP la API también calcula un argon2id (contra un hash señuelo), así que la respuesta tarda lo mismo y dice lo mismo: **401** `rejected` `Tu celular o tu NIP no coinciden.`
+Toda revisión de NIP (entrar, agendar con contacto, cambiar el celular o el NIP) primero reclama un intento con `claim_nip_attempt(celular)`, en una sola sentencia de Postgres. Se permiten **cinco** por celular; el quinto fallido lo bloquea **15 minutos**, y mientras tanto la API responde **429** `throttled` `Demasiados intentos. Espera unos minutos e inténtalo de nuevo.`, aun con el NIP correcto. Un NIP correcto borra los intentos de ese celular. Para un celular desconocido o sin NIP la API también calcula un argon2id (contra un hash señuelo), así que la respuesta tarda lo mismo y dice lo mismo: **401** `rejected` `Tu celular o tu NIP no coinciden.`
 
 ### Errores propios de la app
 
@@ -409,10 +409,10 @@ Mismo cuerpo `{ error, code }` que el panel. Los mensajes están escritos para m
 
 | Código HTTP | `code` | Cuándo |
 |-------------|--------|--------|
-| 400 | `phone`, `nip`, `serviceIds`, `date`, `time`, `contact`, `name`, `new_nip` | El campo que hay que corregir. |
+| 400 | `phone`, `nip`, `serviceIds`, `date`, `time`, `contact`, `name`, `current_nip`, `new_nip` | El campo que hay que corregir. |
 | 401 | `signed_out` | Sin sesión de clienta válida. |
 | 401 | `rejected` | Celular y NIP no coinciden. |
-| 401 | `current_nip` | El NIP actual no coincide al cambiarlo. |
+| 401 | `current_nip` | El NIP actual no coincide al cambiar el celular o el NIP. |
 | 409 | `slot_taken`, `phone_without_nip`, `service_unavailable`, `appointment_not_cancellable`, `order_not_ready`, `phone_taken` | La regla de negocio lo impide (ver cada endpoint). |
 | 429 | `throttled` | Cinco intentos de NIP; espera 15 minutos. |
 | 500 | `unavailable` | Supabase Auth no abrió la sesión, o falla inesperada. |
@@ -539,12 +539,13 @@ curl -X POST http://localhost:3000/api/client/appointments \
 | Entrada | `{ "phone": string, "currentNip"?: string, "newNip"?: string }` |
 | Éxito | **200** `{ "client": { "id", "name", "phone" } }` |
 | 400 `phone` | `Escribe tu celular a 10 dígitos.` |
+| 400 `current_nip` | `Escribe tu NIP actual para cambiar tu celular.` (celular nuevo sin `currentNip`; no cuenta intento ni cambia nada) |
 | 401 `current_nip` | `Tu NIP actual no coincide.` (cuenta un intento; no cambia nada) |
 | 400 `new_nip` | `El NIP nuevo necesita 4 dígitos.` · `El NIP nuevo debe ser distinto del actual.` |
 | 401 `signed_out` | Sin sesión de clienta. |
 | 409 `phone_taken` | `Ese celular ya lo usa otra cuenta.` (no cambia nada) |
 | 429 `throttled` | Cinco intentos en su celular actual. |
-| Regla | Sin `currentNip` ni `newNip` solo cambia el celular. Para cambiar el NIP primero revisa el actual (bajo el límite de intentos de su celular actual) y guarda el nuevo como argon2id. Si nada cambia responde sus datos sin tocar la base. Si el celular cambia, después de guardarlo renombra su usuario de Supabase Auth a `<celular>@clients.calm.app`. |
+| Regla | Cambiar el celular o el NIP pide `currentNip`: lo revisa una sola vez, aunque cambien los dos, bajo el límite de intentos de su celular actual y antes de cambiar nada. Un celular nuevo sin `currentNip` responde 400 sin contar intento. Para cambiar el NIP, después de revisar el actual guarda el nuevo como argon2id; con el mismo celular, mandar solo `currentNip` pide el nuevo (400 `new_nip`). Si nada cambia responde sus datos sin tocar la base. Si el celular cambia, después de guardarlo renombra su usuario de Supabase Auth a `<celular>@clients.calm.app`. |
 
 ### Cómo obtener `$TOKEN_CLIENTA` para probar con curl
 

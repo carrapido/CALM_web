@@ -16,7 +16,8 @@ describe('WhatsApp reminder', () => {
     })
 
     expect(reminder).toHaveAttribute('href', `https://wa.me/529981234567?text=${encodeURIComponent(MARIA_REMINDER)}`)
-    expect(reminder).toHaveAttribute('target', '_blank')
+    expect(reminder).toHaveAttribute('target', 'calm-whatsapp')
+    expect(reminder).toHaveAttribute('rel', 'noopener noreferrer')
   })
 
   it('says an appointment without a number has no WhatsApp', async () => {

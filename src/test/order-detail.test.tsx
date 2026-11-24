@@ -174,7 +174,8 @@ describe('Ready order by WhatsApp', () => {
     const message =
       'Hola Lucía Gómez, tu pedido con ticket 5512 ya está listo. Total: $900 MXN. Puedes pasar a recogerlo.'
     expect(notice).toHaveAttribute('href', `https://wa.me/529985551234?text=${encodeURIComponent(message)}`)
-    expect(notice).toHaveAttribute('target', '_blank')
+    expect(notice).toHaveAttribute('target', 'calm-whatsapp')
+    expect(notice).toHaveAttribute('rel', 'noopener noreferrer')
   })
 
   it('says a ready order without a number has no WhatsApp', async () => {
