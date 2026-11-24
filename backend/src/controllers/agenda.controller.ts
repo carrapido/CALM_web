@@ -10,7 +10,7 @@ import {
 } from '../types/agenda.js'
 import { HttpError } from '../utils/http-error.js'
 import { isRecord } from '../utils/is-record.js'
-import { isCalendarDate, ticketOf } from '../utils/validation.js'
+import { isCalendarDate, isSlotTime, ticketOf } from '../utils/validation.js'
 
 const WEEK_PROBLEM = 'El horario trae los siete días de la semana, de lunes a domingo.'
 const HOURS_PROBLEM = 'Cada día indica isOpen; un día abierto abre y cierra a una hora en punto o y media (HH:MM).'
@@ -100,11 +100,6 @@ function dayHoursOf(value: unknown): DayHours {
   if (!isSlotTime(opensAt) || !isSlotTime(closesAt)) throw invalidInput(HOURS_PROBLEM)
   if (closesAt <= opensAt) throw invalidInput(ORDER_PROBLEM)
   return { isOpen: true, opensAt, closesAt }
-}
-
-// `HH:MM` on the hour or the half hour; zero-padded, so text order is time order.
-function isSlotTime(value: unknown): value is string {
-  return typeof value === 'string' && /^([01]\d|2[0-3]):(00|30)$/.test(value)
 }
 
 function dateRangeOf(from: unknown, to: unknown): { first: CalendarDate; last: CalendarDate } {

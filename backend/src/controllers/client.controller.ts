@@ -3,13 +3,13 @@
 // new one when she forgot hers. The NIP is hashed here and never stored as typed.
 import type { Request, Response } from 'express'
 import type { AuthAccounts, ClientRepository } from '../types/client.js'
+import { authEmailOf } from '../utils/client-auth.js'
 import { PHONE_TAKEN } from '../utils/conflicts.js'
 import { HttpError } from '../utils/http-error.js'
 import { isRecord } from '../utils/is-record.js'
 import { hashNip } from '../utils/nip.js'
+import { digitsOf, NIP_PATTERN, PHONE_PATTERN } from '../utils/validation.js'
 
-const PHONE_PATTERN = /^\d{10}$/
-const NIP_PATTERN = /^\d{4}$/
 const MAX_NAME_LENGTH = 80
 
 const CLIENT_NOT_FOUND = new HttpError(404, 'not_found', 'Ese cliente ya no existe.')
@@ -38,7 +38,7 @@ export function clientController(clients: ClientRepository, authAccounts: AuthAc
       if (granted === 'phoneTaken') throw PHONE_TAKEN
       // Her auth user is named after her phone; it changes only once the database has the new one.
       if (granted.authUserToRename !== null) {
-        await authAccounts.updateEmail(granted.authUserToRename, `${phone}@clients.calm.app`)
+        await authAccounts.updateEmail(granted.authUserToRename, authEmailOf(phone))
       }
       res.json({ client: granted.client })
     },
@@ -70,8 +70,4 @@ function nameOf(body: unknown): string {
     throw new HttpError(400, 'name', 'Escribe el nombre del cliente.')
   }
   return name
-}
-
-function digitsOf(value: unknown): string {
-  return typeof value === 'string' ? value.replace(/\D/g, '') : ''
 }

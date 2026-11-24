@@ -20,7 +20,7 @@ export function requireAdmin(identity: Identity, admins: AdminRepository): Reque
   })
 }
 
-function bearerTokenOf(header: string | undefined): string | null {
+export function bearerTokenOf(header: string | undefined): string | null {
   const match = /^Bearer (\S+)$/.exec(header ?? '')
   return match?.[1] ?? null
 }

@@ -4,12 +4,14 @@ import { allowPanelOrigins } from './middlewares/cors.middleware.js'
 import { handleErrors, routeNotFound } from './middlewares/error.middleware.js'
 import { logRequests, type LogLine } from './middlewares/request-log.middleware.js'
 import { agendaRouter } from './routes/agenda.routes.js'
+import { clientAppRouter } from './routes/client-app.routes.js'
 import { clientRouter } from './routes/client.routes.js'
 import { orderRouter } from './routes/order.routes.js'
 import { serviceRouter } from './routes/service.routes.js'
 import type { AgendaRepository } from './types/agenda.js'
 import type { AdminRepository, Identity } from './types/auth.js'
 import type { AuthAccounts, ClientRepository } from './types/client.js'
+import type { ClientAppRepository, ClientSessions } from './types/client-app.js'
 import type { OrderRepository } from './types/order.js'
 import type { ServiceRepository } from './types/service.js'
 
@@ -26,6 +28,10 @@ export type AppDependencies = {
   authAccounts: AuthAccounts
   agenda: AgendaRepository
   orders: OrderRepository
+  clientApp: ClientAppRepository
+  clientSessions: ClientSessions
+  // Booking reads Cancún's wall clock from it; the real clock when not given.
+  now?: () => Date
 }
 
 export function createApp({
@@ -38,6 +44,9 @@ export function createApp({
   authAccounts,
   agenda,
   orders,
+  clientApp,
+  clientSessions,
+  now = () => new Date(),
 }: AppDependencies): Express {
   const app = express()
   // First, so even a CORS preflight or a refused request shows in the terminal.
@@ -49,6 +58,8 @@ export function createApp({
     res.json({ status: 'ok' })
   })
 
+  // Before the admin guard: the client app signs in and books without being an admin.
+  app.use('/api/client', clientAppRouter({ identity, clientApp, clients, authAccounts, clientSessions, now }))
   app.use('/api', requireAdmin(identity, admins))
   app.use('/api/services', serviceRouter(services))
   app.use('/api/clients', clientRouter(clients, authAccounts))

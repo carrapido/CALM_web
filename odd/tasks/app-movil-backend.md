@@ -1,0 +1,47 @@
+---
+status: in-progress
+---
+
+# La app móvil pasa por el backend
+
+calm_mobil (Flutter) stops calling Supabase for data and goes through the Express API, like the admin panel: Flutter → `/api/client/*` → controller → repository → Postgres. Supabase Auth keeps issuing the client's session; the client Supabase edge functions and RPCs the app used are retired. Mirror for the Flutter side: `calm_mobil/odd/tasks/backend-api.md`.
+
+## Specs
+
+- **S1** User: "Si, la aplicación movil debe pasar por el backend, por que tambien debe de haber modificaciones en flutter".
+- **S2** Sign-in, user choice: "Backend + sesión de Supabase Auth (recomendado)" — "POST /api/client/sign-in verifica teléfono y NIP (mismo límite de 5 intentos y 15 min) y devuelve la sesión de Supabase Auth. La app manda ese token a la API, igual que el panel. Reutiliza todo lo que ya funciona."
+- **S3** Demo platform, user choice: "Emulador de Android" — "La app llega a tu compu por http://10.0.2.2:3000/api."
+- **S4** Retired functions, user choice: "Retirarlas" — "Se borran del repo y de Supabase; todo pasa solo por el backend. Irreversible sin redeploy." Scope: edge functions client-sign-in, client-book, client-update-profile and the RPCs cancel_my_appointment and mark_on_my_way.
+- **S5** Behavior parity: every rule the retired functions enforced is kept (validation, 5-attempt / 15-minute NIP throttle via claim_nip_attempt, argon2id NIP with a decoy hash for unknown phones, 62-day booking window in Cancún time, opening hours, blocked dates, slot taken, 24 h cancel rule, ready → onTheWay only, phone/NIP change rules, auth email `<phone>@clients.calm.app`).
+- **S6** The admin panel and its API keep working unchanged.
+
+## API contract (camelCase JSON; errors `{error, code}` as the admin API)
+
+Client auth: `requireClient` reads `Authorization: Bearer <Supabase access token>`, `auth.getUser`, then `clients where user_id = $1`; no token, invalid token or no client → 401 `signed_out`. Mounted before the admin guard; `/api/client/*` never accepts admin-only routes and admin routes never accept a client token.
+
+| Method | URL | Auth | Body / query | Success | Errors |
+|---|---|---|---|---|---|
+| POST | /api/client/sign-in | none | `{phone, nip}` | 200 `{refreshToken, client:{id, name, phone}}` | 400 `phone`/`nip`, 401 `rejected`, 429 `throttled` |
+| GET | /api/client/services | none | — | 200 `[{id, name, category, basePriceMxn}]` active only, by id | — |
+| GET | /api/client/booking-calendar | none | — | 200 `{today, now, weekly:[{weekday, opensAt, closesAt}], blocked:[date], booked:[{date, time}]}` (this month and next, no client data) | — |
+| GET | /api/client/profile | client | — | 200 `{name, phone}` | 401 `signed_out` |
+| GET | /api/client/orders | client | — | 200 `{orders:[{ticket, work, status, finalPriceMxn, deliveryDate}], appointments:[{ticket, date, time, preliminaryTotalMxn, services:[name], hasOrder}]}` her own only | 401 |
+| POST | /api/client/appointments | client OR contact | `{serviceIds:[int], urgent, date, time, contact?:{name, phone, nip}}` | 201 `{ticket, client:{id,name,phone}, appointment:{date, time, totalMxn}, refreshToken?}` (refreshToken only on the contact path) | 400 field, 401 `signed_out` / `rejected`, 409 `slot_taken` / `phone_without_nip` / `service_unavailable`, 429 `throttled` |
+| DELETE | /api/client/appointments/:ticket | client | — | 204 | 409 `appointment_not_cancellable`, 401 |
+| POST | /api/client/orders/:ticket/on-my-way | client | — | 204 | 409 `order_not_ready`, 401 |
+| PUT | /api/client/profile | client | `{phone, currentNip?, newNip?}` | 200 `{client:{id, name, phone}}` | 400 `phone`/`new_nip`, 401 `current_nip`/`signed_out`, 409 `phone_taken`, 429 `throttled` |
+
+## Tasks
+
+- [ ] M1 (S2, S5) Backend client auth (`requireClient`) + `POST /api/client/sign-in` (claim_nip_attempt, decoy argon2 verify, auth user create/link/orphan reuse, magic-link refresh token via service role, clear failures). Risk: item 2. Route: worker (CALM_web). Commit: —
+- [ ] M2 (S1, S5, S6) Backend client data endpoints (services, booking-calendar, profile, orders, book, cancel, on-my-way, update profile) with parameterized SQL and transactions. Route: same worker. Commit: —
+- [ ] M3 (S1, S3) Flutter: Api implementations of ClientAccess and ClientData over HTTP (`API_URL` dart-define, `http://10.0.2.2:3000/api` in the env example), Android cleartext allowed only for local development hosts, supabase_flutter kept only for the session. Route: worker (calm_mobil, parallel to M1-M2, against this contract). Commit: —
+- [ ] M4 (S4) Retire client-sign-in, client-book, client-update-profile and the RPCs cancel_my_appointment / mark_on_my_way: repo removal + migration; remote undeploy and migration apply as the last step. Route: inline after M7 checks. Commit: —
+- [ ] M5 Docs in both repos (api.md, pruebas.md, arquitectura.md flow for the app, READMEs, env README). Route: worker. Commit: —
+- [ ] M6 (S1-S6) Verify end to end: backend tests + test:db, flutter test, run the API and the app flows against a local or real backend. Route: verify. Commit: —
+
+## Log
+
+- **L1** User: "Si, la aplicación movil debe pasar por el backend, por que tambien debe de haber modificaciones en flutter".
+- **L2** Exploration of calm_mobil: ports ClientAccess (signIn) and ClientData (isSignedIn, catalog, orders, profile, agenda, book, cancelAppointment, markOnMyWay, saveProfile, signOut); Supabase implementations in lib/services/supabase_client_{access,data}.dart; fakes in test/support and test/screens; about 178 tests; config by --dart-define-from-file=env/supabase.json; no http package; flutter 3.47.4 installed. Server logic mapped from supabase/functions/{client-sign-in,client-book,client-update-profile,_shared/client-auth.ts} and the RPC migrations.
+- **L3** User answers: sign-in "Backend + sesión de Supabase Auth (recomendado)"; demo "Emulador de Android"; retired functions "Retirarlas".
