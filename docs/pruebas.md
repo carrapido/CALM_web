@@ -8,21 +8,23 @@ Cada fila es un caso representativo de un endpoint: qué se envía, qué debe re
 npm --prefix backend test
 ```
 
-Resultado observado el 24 de noviembre de 2026:
+Resultado observado (sin `TEST_DATABASE_URL`, así que las pruebas de SQL se saltan):
 
 ```text
- Test Files  6 passed (6)
-      Tests  188 passed (188)
+ Test Files  7 passed | 1 skipped (8)
+      Tests  195 passed | 24 skipped (219)
 ```
 
 | Archivo | Pruebas | Qué cubre |
 |---------|---------|-----------|
-| `app.test.ts` | 27 | Salud, CORS, guardia de administradora, rutas inexistentes, middleware de errores, 413 y 415. |
+| `app.test.ts` | 33 | Salud, CORS, guardia de administradora, rutas inexistentes, middleware de errores (con el mensaje de cada restricción conocida), 413 y 415. |
 | `services.test.ts` | 31 | Catálogo de servicios. |
 | `clients.test.ts` | 34 | Clientes y hash del NIP. |
 | `agenda.test.ts` | 45 | Horario, días bloqueados y citas. |
 | `orders.test.ts` | 44 | Pedidos. |
 | `supabase-auth.test.ts` | 7 | Cómo se interpreta la respuesta de Supabase Auth al verificar un token. |
+| `database.test.ts` | 1 | Una conexión inactiva que se cae no tumba el servidor. |
+| `repositories.sql.test.ts` | 24 | Los repositorios de SQL contra un Postgres desechable (ver [Repositorios contra Postgres](#repositorios-contra-postgres)). |
 
 Las pruebas levantan la app de Express real (`createApp`) con `supertest`; solo cambian Supabase Auth y Postgres por repositorios en memoria (`backend/test/in-memory-*.ts`). Así comprueban rutas, validación, códigos y cuerpos JSON sin tocar la base real. Las pruebas de rechazo también comprueban que **no cambió nada** en los datos.
 
@@ -45,8 +47,14 @@ En la columna **Observado**, ✅ significa que la respuesta fue exactamente la e
 | *Charset* no soportado | `Content-Type: application/json; charset=latin9` | 415 `unsupported_body` | ✅ 415 | app › Bodies the API cannot take › answers 415 to a charset it does not read |
 | Falla la base | El repositorio lanza un error | 500 `unavailable`, sin detalles; el error va al log | ✅ 500 | app › The error middleware › answers 500 without the details and logs them |
 | Supabase Auth caído | `identity` lanza error | 500 `unavailable` y no lee datos | ✅ 500 | app › The admin guard failures › answers 500 and touches nothing when Supabase Auth fails |
-| Duplicado en Postgres | Error 23505 | 409 `conflict` | ✅ 409 | app › The error middleware › answers 409 when Postgres reports a duplicate (23505) |
-| Registro en uso | Error 23503 | 409 `conflict` | ✅ 409 | app › The error middleware › answers 409 when Postgres reports a row still in use (23503) |
+| Duplicado en Postgres | Error 23505 sin restricción conocida | 409 `conflict` | ✅ 409 | app › The error middleware › answers 409 when Postgres reports a duplicate (23505) |
+| Registro en uso | Error 23503 sin restricción conocida | 409 `conflict` | ✅ 409 | app › The error middleware › answers 409 when Postgres reports a row still in use (23503) |
+| Restricción desconocida | Error 23505 de `some_other_key` | 409 `conflict` | ✅ 409 | app › The error middleware › keeps the general 409 for a constraint it does not know |
+| Nombre de servicio repetido | Error 23505 de `services_name_key` | 409 `service_name_taken` `Ya existe un servicio con ese nombre.` | ✅ 409 | app › The error middleware › answers 409 with its own message when Postgres 23505 names services_name_key |
+| Celular repetido | Error 23505 de `clients_phone_key` | 409 `phone_taken` | ✅ 409 | app › The error middleware › answers 409 with its own message when Postgres 23505 names clients_phone_key |
+| Folio activo repetido | Error 23505 de `orders_active_ticket_key` | 409 `ticket_taken` | ✅ 409 | app › The error middleware › answers 409 with its own message when Postgres 23505 names orders_active_ticket_key |
+| Cita con dos pedidos | Error 23505 de `orders_appointment_id_key` | 409 `appointment_has_order` | ✅ 409 | app › The error middleware › answers 409 with its own message when Postgres 23505 names orders_appointment_id_key |
+| Borrar cita con pedido | Error 23503 de `orders_appointment_id_fkey` | 409 `appointment_has_order` `Esta cita ya tiene un pedido; cancela o entrega el pedido primero.` | ✅ 409 | app › The error middleware › answers 409 with its own message when Postgres 23503 names orders_appointment_id_fkey |
 
 ## Servicios
 
@@ -55,7 +63,8 @@ En la columna **Observado**, ✅ significa que la respuesta fue exactamente la e
 | Listar | `GET /api/services` | 200 con los 2 servicios | ✅ 200 | services › GET /api/services › lists every service with its price, days and state |
 | Agregar | `POST` `{"name":"Dobladillo","price":{"kind":"base","amountMxn":80},"estimatedDays":2}` | 201 con `id` e `isActive: true`; queda en la lista | ✅ 201 | services › POST /api/services › adds an active service and answers 201 with it |
 | Días fuera de rango | `POST` con `estimatedDays: 31` | 400 `Los días estimados son un entero de 0 a 30.`; no agrega | ✅ 400 | services › POST /api/services › answers 400 for 31 estimated days and adds nothing |
-| Nombre repetido | `POST` con `name: "Parche"` | 409 `conflict`; no agrega | ✅ 409 | services › POST /api/services › answers 409 when the name is taken |
+| Nombre repetido | `POST` con `name: "Parche"` | 409 `service_name_taken`; no agrega | ✅ 409 | services › POST /api/services › answers 409 when the name is taken |
+| Renombrar a uno existente | `PUT /api/services/3` con el nombre de otro | 409 `service_name_taken`; no cambia | ✅ 409 | services › PUT /api/services/:id › answers 409 when the new name belongs to another service and changes nothing |
 | Editar | `PUT /api/services/3` con los 4 campos | 200 con el servicio nuevo | ✅ 200 | services › PUT /api/services/:id › replaces the service and answers 200 with it |
 | Id inválido | `PUT /api/services/abc` | 400 `El identificador del servicio no es válido.` | ✅ 400 | services › PUT /api/services/:id › answers 400 for the id abc |
 | No existe | `PUT /api/services/99` | 404 `El servicio no existe.` | ✅ 404 | services › PUT /api/services/:id › answers 404 for a service that does not exist |
@@ -95,11 +104,11 @@ En la columna **Observado**, ✅ significa que la respuesta fue exactamente la e
 | Citas de un rango | `GET /api/appointments?from=2026-06-01&to=2026-06-30` | 200 con 2 citas | ✅ 200 | agenda › GET /api/appointments › lists the appointments from one day to another, both included |
 | Rango al revés | `?from=2026-06-30&to=2026-06-01` | 400 `Indica from y to…` | ✅ 400 | agenda › GET /api/appointments › answers 400 for from after to |
 | Cancelar | `DELETE /api/appointments/0427?date=2026-06-03` | 204; solo esa cita | ✅ 204 | agenda › DELETE /api/appointments/:ticket › cancels only the appointment with that ticket on that date and answers 204 |
-| Cita con pedido | `DELETE /api/appointments/0427?date=2026-06-03` (un pedido la usa) | 409 `conflict`; no borra | ✅ 409 | agenda › DELETE /api/appointments/:ticket › answers 409 when an order already points to the appointment and keeps it |
+| Cita con pedido | `DELETE /api/appointments/0427?date=2026-06-03` (un pedido la usa) | 409 `appointment_has_order` `Esta cita ya tiene un pedido; cancela o entrega el pedido primero.`; no borra | ✅ 409 | agenda › DELETE /api/appointments/:ticket › answers 409 when an order already points to the appointment and keeps it |
 | No existe | `DELETE /api/appointments/0427?date=2026-07-01` | 404 `No hay una cita con ese folio en esa fecha.` | ✅ 404 | agenda › DELETE /api/appointments/:ticket › answers 404 when that date has no appointment with that ticket |
 | Folio inválido | `DELETE /api/appointments/427?date=…` | 400 `El folio es de 4 dígitos.` | ✅ 400 | agenda › DELETE /api/appointments/:ticket › answers 400 for the ticket 427 |
 
-Cancelar una cita que ya tiene pedido responde 409 `conflict` porque Postgres rechaza el borrado (23503).
+Cancelar una cita que ya tiene pedido responde 409 `appointment_has_order` porque Postgres rechaza el borrado (23503 de `orders_appointment_id_fkey`).
 
 ## Pedidos
 
@@ -118,9 +127,47 @@ Cancelar una cita que ya tiene pedido responde 409 `conflict` porque Postgres re
 | Pedido terminado | `PUT /api/orders/7777` (cancelado) | 404 `No hay un pedido activo con ese folio.` | ✅ 404 | orders › PUT /api/orders/:ticket › answers 404 when only a finished order holds the ticket, and changes nothing |
 | Estado inválido | `status: "Listo"` | 400 `status`; no cambia | ✅ 400 | orders › PUT /api/orders/:ticket › answers 400 for an unknown status and changes nothing |
 
+## Repositorios contra Postgres
+
+`backend/test/repositories.sql.test.ts` corre el SQL de cada repositorio contra un Postgres real. Antes de cada prueba borra los esquemas `public`, `private` y `auth`, carga `database/schema.sql`, crea una administradora de prueba y carga `database/seed.sql`; las fechas las pide a la base, porque el seed las calcula desde `current_date`. Solo corre con `TEST_DATABASE_URL` (nunca lee `DATABASE_URL`), así que la base debe ser desechable. Cómo correrlo: [README](../README.md#pruebas-contra-una-base-de-datos-desechable).
+
+Resultado observado contra `postgres:17-alpine` en Docker:
+
+```text
+ Test Files  1 passed (1)
+      Tests  24 passed (24)
+```
+
+| Repositorio | Caso | Esperado | Observado |
+|-------------|------|----------|-----------|
+| admins | La administradora de prueba y otro id | `true` y `false` | ✅ |
+| services | Agregar «Bordado» | Activo, con id `8`, queda en la lista | ✅ |
+| services | Editar el 3 y uno que no existe | El 3 cambia; `null` para el 99 | ✅ |
+| services | Borrar el 5 (lo usa una cita), el 6 y el 99 | `inUse`, `deleted`, `notFound`; el 5 sigue | ✅ |
+| services | Agregar «Parche» otra vez | 23505 de `services_name_key`; siguen 7 servicios | ✅ |
+| clients | Alta con celular nuevo | `hasAppAccess: true`; se borra el bloqueo de ese celular, no el de otro | ✅ |
+| clients | Alta con el celular de Ana | `phoneTaken`; siguen 6 clientes | ✅ |
+| clients | Dar NIP a Rosa con celular nuevo | Cambia su celular; se borran los bloqueos del viejo y del nuevo | ✅ |
+| clients | Usuaria de la app cambia de celular | Devuelve su usuario de Auth para renombrarlo | ✅ |
+| clients | Dar NIP con un celular ocupado | `phoneTaken`; ni la clienta ni sus intentos cambian | ✅ |
+| clients | Cliente 99 | `notFound` | ✅ |
+| agenda | Leer y guardar la semana | La del seed; luego la nueva | ✅ |
+| agenda | Semana con un día que cierra antes de abrir | 23514; los siete días siguen como estaban | ✅ |
+| agenda | Bloquear el mismo día dos veces y desbloquearlo | Aparece una vez; luego ya no | ✅ |
+| agenda | Citas de hace 2 días a dentro de 2 | `0427`, `0815`, `1503` en orden, con servicios y total | ✅ |
+| agenda | Cancelar `0815` de mañana con otra `0815` más adelante | Solo se borra la de mañana; cancelarla otra vez da `false` | ✅ |
+| agenda | Cancelar `0427` (tiene pedido) | 23503 de `orders_appointment_id_fkey`; la cita sigue | ✅ |
+| orders | Pedido desde la cita de mañana | Clienta de la cita y la cita en el pedido | ✅ |
+| orders | Hora sin cita y cita que ya tiene pedido | `appointmentNotFound` y `appointmentHasOrder`; siguen 6 pedidos | ✅ |
+| orders | Mostrador con celular nuevo | Crea la clienta | ✅ |
+| orders | Mostrador con el celular de Rosa | Usa a Rosa; siguen 6 clientes | ✅ |
+| orders | Folio `5310` activo con clienta nueva | `ticketTaken`; no queda clienta huérfana | ✅ |
+| orders | Precio negativo con clienta nueva | 23514; no queda clienta ni pedido | ✅ |
+| orders | Actualizar `1290` y el entregado `3388` | El primero cambia; el segundo da `null` y queda igual | ✅ |
+
 ## Evidencia para la demostración en vivo
 
-Las pruebas automáticas usan datos en memoria. Para mostrar que los datos **persisten en Postgres** y que los errores llegan a la pantalla, sigue estos pasos con la API y el panel corriendo (ver [README](../README.md)) y la base con `database/seed.sql`. Toma una captura en cada paso marcado con 📸.
+Las pruebas de la API usan datos en memoria y las de repositorios una base desechable. Para mostrar que los datos **persisten en Postgres** y que los errores llegan a la pantalla, sigue estos pasos con la API y el panel corriendo (ver [README](../README.md)) y la base con `database/seed.sql`. Toma una captura en cada paso marcado con 📸.
 
 ### Persistencia
 

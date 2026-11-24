@@ -10,12 +10,14 @@ import {
 } from '../types/agenda.js'
 import { HttpError } from '../utils/http-error.js'
 import { isRecord } from '../utils/is-record.js'
+import { isCalendarDate, ticketOf } from '../utils/validation.js'
 
 const WEEK_PROBLEM = 'El horario trae los siete días de la semana, de lunes a domingo.'
 const HOURS_PROBLEM = 'Cada día indica isOpen; un día abierto abre y cierra a una hora en punto o y media (HH:MM).'
 const ORDER_PROBLEM = 'La hora de cierre es posterior a la de apertura.'
 const DATE_PROBLEM = 'La fecha no es válida; usa el formato AAAA-MM-DD.'
 const RANGE_PROBLEM = 'Indica from y to en formato AAAA-MM-DD, con from igual o anterior a to.'
+const INVALID_TICKET = invalidInput('El folio es de 4 dígitos.')
 
 export function agendaController(agenda: AgendaRepository) {
   return {
@@ -51,7 +53,7 @@ export function agendaController(agenda: AgendaRepository) {
 
     // Tickets repeat across dates, so the date tells which appointment to cancel.
     async cancelAppointment(req: Request, res: Response): Promise<void> {
-      const ticket = ticketOf(req.params.ticket)
+      const ticket = ticketOf(req.params.ticket, INVALID_TICKET)
       const date = calendarDateOf(req.query.date)
       if (!(await agenda.cancelAppointment(ticket, date))) {
         throw new HttpError(404, 'not_found', 'No hay una cita con ese folio en esa fecha.')
@@ -112,18 +114,6 @@ function dateRangeOf(from: unknown, to: unknown): { first: CalendarDate; last: C
 
 function calendarDateOf(value: unknown): CalendarDate {
   if (!isCalendarDate(value)) throw invalidInput(DATE_PROBLEM)
-  return value
-}
-
-// A real day in `YYYY-MM-DD`: Date rolls 2026-02-30 over to March, which the round trip catches.
-function isCalendarDate(value: unknown): value is CalendarDate {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-  const day = new Date(`${value}T00:00:00Z`)
-  return !Number.isNaN(day.getTime()) && day.toISOString().slice(0, 10) === value
-}
-
-function ticketOf(value: unknown): string {
-  if (typeof value !== 'string' || !/^\d{4}$/.test(value)) throw invalidInput('El folio es de 4 dígitos.')
   return value
 }
 

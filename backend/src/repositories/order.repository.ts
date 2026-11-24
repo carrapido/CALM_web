@@ -2,6 +2,7 @@ import { DatabaseError, type Pool, type PoolClient } from 'pg'
 import {
   isOrderStatus, type AddRefusal, type NewOrder, type Order, type OrderRepository, type OrderStatus,
 } from '../types/order.js'
+import { inTransaction } from '../utils/in-transaction.js'
 
 // One order with its client and, when it came from one, its appointment. Dates and times
 // are read as text, because node-postgres turns a `date` into a JavaScript Date.
@@ -78,21 +79,6 @@ export function orderRepository(pool: Pool): OrderRepository {
       )
       return rows[0] === undefined ? null : orderFromRow(rows[0])
     },
-  }
-}
-
-async function inTransaction<T>(pool: Pool, work: (db: PoolClient) => Promise<T>): Promise<T> {
-  const db = await pool.connect()
-  try {
-    await db.query('begin')
-    const result = await work(db)
-    await db.query('commit')
-    return result
-  } catch (error) {
-    await db.query('rollback')
-    throw error
-  } finally {
-    db.release()
   }
 }
 

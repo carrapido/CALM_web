@@ -3,6 +3,7 @@
 // new one when she forgot hers. The NIP is hashed here and never stored as typed.
 import type { Request, Response } from 'express'
 import type { AuthAccounts, ClientRepository } from '../types/client.js'
+import { PHONE_TAKEN } from '../utils/conflicts.js'
 import { HttpError } from '../utils/http-error.js'
 import { isRecord } from '../utils/is-record.js'
 import { hashNip } from '../utils/nip.js'
@@ -11,8 +12,6 @@ const PHONE_PATTERN = /^\d{10}$/
 const NIP_PATTERN = /^\d{4}$/
 const MAX_NAME_LENGTH = 80
 
-// The codes name the form field, which the panel highlights.
-const PHONE_TAKEN = new HttpError(409, 'phone_taken', 'Ese celular ya es de otro cliente.')
 const CLIENT_NOT_FOUND = new HttpError(404, 'not_found', 'Ese cliente ya no existe.')
 
 type Credentials = { phone: string; nip: string }

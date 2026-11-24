@@ -54,11 +54,21 @@ Todo error tiene la misma forma, y el mensaje está escrito para mostrarse tal c
 | 401 | `unauthenticated` | Sin sesión válida. |
 | 403 | `not_admin` | La cuenta no es de administradora. |
 | 404 | `not_found` | El registro no existe, o la ruta no existe (`No existe la ruta GET /api/x.`). |
-| 409 | `service_in_use`, `phone_taken`, `ticket_taken`, `appointment_has_order` | Conflictos de negocio con nombre propio (ver cada endpoint). |
-| 409 | `conflict` | Cualquier otro duplicado (Postgres 23505) o registro en uso (23503). |
+| 409 | `service_in_use`, `service_name_taken`, `phone_taken`, `ticket_taken`, `appointment_has_order` | Conflictos de negocio con nombre propio (ver cada endpoint y la tabla de abajo). |
+| 409 | `conflict` | Cualquier otro duplicado (Postgres 23505) o registro en uso (23503) cuya restricción no está en la tabla de abajo. |
 | 413 | `body_too_large` | Cuerpo de más de 100 KB (límite de `express.json()`). |
 | 415 | `unsupported_body` | JSON en un *charset* distinto de UTF-8. |
 | 500 | `unavailable` | Falla inesperada (base de datos caída, Supabase sin respuesta). El detalle va al log del servidor, nunca al cliente. |
+
+Cuando Postgres rechaza una escritura por una restricción conocida de `database/schema.sql`, el middleware de errores responde con el mensaje de esa restricción (`backend/src/utils/conflicts.ts`):
+
+| Restricción | Error de Postgres | `code` | `error` |
+|-------------|-------------------|--------|---------|
+| `services_name_key` | 23505 | `service_name_taken` | `Ya existe un servicio con ese nombre.` |
+| `clients_phone_key` | 23505 | `phone_taken` | `Ese celular ya es de otro cliente.` |
+| `orders_active_ticket_key` | 23505 | `ticket_taken` | `Ya hay un pedido activo con ese folio.` |
+| `orders_appointment_id_key` | 23505 | `appointment_has_order` | `Esta cita ya tiene un pedido.` |
+| `orders_appointment_id_fkey` | 23503 | `appointment_has_order` | `Esta cita ya tiene un pedido; cancela o entrega el pedido primero.` |
 
 ### Formatos
 
@@ -116,7 +126,7 @@ Forma de un servicio:
 | Entrada | `{ "name": string, "price": price, "estimatedDays": entero }` |
 | Éxito | **201** el servicio creado, con `isActive: true` |
 | 400 `invalid_input` | `El nombre es obligatorio y tiene hasta 80 caracteres.` · `El precio es un entero de 0 o más, o se cotiza en tienda.` · `Los días estimados son un entero de 0 a 30.` · cuerpo vacío |
-| 409 `conflict` | Ya existe un servicio con ese nombre. |
+| 409 `service_name_taken` | `Ya existe un servicio con ese nombre.` |
 | Regla | El nombre se guarda sin espacios alrededor. Todo servicio nuevo nace activo y con categoría `arreglo`. |
 
 ### 4. `PUT /api/services/:id`
@@ -127,7 +137,7 @@ Forma de un servicio:
 | Éxito | **200** el servicio como quedó |
 | 400 `invalid_input` | `El identificador del servicio no es válido.` · `Indica si el servicio está activo con true o false.` · las mismas validaciones que POST |
 | 404 `not_found` | `El servicio no existe.` |
-| 409 `conflict` | El nuevo nombre ya es de otro servicio. |
+| 409 `service_name_taken` | `Ya existe un servicio con ese nombre.` (el nuevo nombre ya es de otro servicio; no cambia nada) |
 | Regla | Reemplaza el servicio completo. Desactivarlo lo oculta de la app de clientes sin borrarlo. |
 
 ### 5. `DELETE /api/services/:id`
@@ -268,7 +278,7 @@ curl -X POST http://localhost:3000/api/clients \
 | Éxito | **204** sin cuerpo |
 | 400 `invalid_input` | `El folio es de 4 dígitos.` · `La fecha no es válida; usa el formato AAAA-MM-DD.` |
 | 404 `not_found` | `No hay una cita con ese folio en esa fecha.` |
-| 409 `conflict` | La cita ya tiene un pedido (Postgres 23503). |
+| 409 `appointment_has_order` | `Esta cita ya tiene un pedido; cancela o entrega el pedido primero.` (Postgres 23503; no borra) |
 | Regla | Los folios se repiten entre fechas, por eso se cancela por folio **y** fecha. Cancelar borra la cita y sus servicios; el horario queda libre otra vez. |
 
 ```bash

@@ -5,14 +5,17 @@ import {
   isOrderStatus, type AddRefusal, type AppointmentSlot, type NewOrder, type OrderChanges,
   type OrderRepository, type OrderStatus,
 } from '../types/order.js'
+import { APPOINTMENT_HAS_ORDER, TICKET_TAKEN } from '../utils/conflicts.js'
 import { HttpError } from '../utils/http-error.js'
 import { isRecord } from '../utils/is-record.js'
+import { isCalendarDate, ticketOf } from '../utils/validation.js'
 
 const REFUSAL_ERRORS: Record<AddRefusal, HttpError> = {
   appointmentNotFound: new HttpError(404, 'not_found', 'No hay una cita en esa fecha y hora.'),
-  ticketTaken: new HttpError(409, 'ticket_taken', 'Ya hay un pedido activo con ese folio.'),
-  appointmentHasOrder: new HttpError(409, 'appointment_has_order', 'Esta cita ya tiene un pedido.'),
+  ticketTaken: TICKET_TAKEN,
+  appointmentHasOrder: APPOINTMENT_HAS_ORDER,
 }
+const INVALID_TICKET = invalidField('ticket', 'El folio son 4 dígitos.')
 
 export function orderController(orders: OrderRepository) {
   return {
@@ -27,7 +30,7 @@ export function orderController(orders: OrderRepository) {
     },
 
     async update(req: Request, res: Response): Promise<void> {
-      const ticket = ticketOf(req.params.ticket)
+      const ticket = ticketOf(req.params.ticket, INVALID_TICKET)
       const updated = await orders.updateActive(ticket, orderChangesOf(fieldsOf(req.body)))
       if (updated === null) {
         throw new HttpError(404, 'not_found', 'No hay un pedido activo con ese folio.')
@@ -43,7 +46,7 @@ function fieldsOf(body: unknown): Record<string, unknown> {
 }
 
 function newOrderOf(fields: Record<string, unknown>): NewOrder {
-  const ticket = ticketOf(fields.ticket)
+  const ticket = ticketOf(fields.ticket, INVALID_TICKET)
   const changes = orderChangesOf(fields)
   if (fields.appointment !== undefined) {
     return { ticket, ...changes, appointment: appointmentOf(fields.appointment) }
@@ -58,13 +61,6 @@ function orderChangesOf(fields: Record<string, unknown>): OrderChanges {
     deliveryDate: deliveryDateOf(fields.deliveryDate),
     status: statusOf(fields.status),
   }
-}
-
-function ticketOf(value: unknown): string {
-  if (typeof value !== 'string' || !/^\d{4}$/.test(value)) {
-    throw invalidField('ticket', 'El folio son 4 dígitos.')
-  }
-  return value
 }
 
 function workOf(value: unknown): string {
@@ -112,13 +108,6 @@ function whatsappOf(value: unknown): string | undefined {
     throw invalidField('whatsapp', 'El WhatsApp son 10 dígitos.')
   }
   return value
-}
-
-// A real day, so 2026-02-30 fails here rather than in Postgres.
-function isCalendarDate(value: unknown): value is string {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-  const date = new Date(`${value}T00:00:00Z`)
-  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value)
 }
 
 function isClockTime(value: string): boolean {

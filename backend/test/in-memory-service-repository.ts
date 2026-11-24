@@ -39,7 +39,11 @@ export class InMemoryServiceRepository implements ServiceRepository {
 
   private refuseTakenName(name: string, ownId: string | undefined) {
     if (this.services.some((service) => service.name === name && service.id !== ownId)) {
-      throw postgresError('23505', 'duplicate key value violates unique constraint "services_name_key"')
+      throw postgresError(
+        '23505',
+        'duplicate key value violates unique constraint "services_name_key"',
+        'services_name_key',
+      )
     }
   }
 }
