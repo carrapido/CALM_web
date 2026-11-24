@@ -48,14 +48,14 @@ describe('Opening the panel', () => {
 
 describe('Signing in', () => {
   it('opens the panel on the page in the address, ignoring spaces and dashes in the phone', async () => {
-    window.location.hash = '#/pedidos'
+    window.location.hash = '#/clientes'
     const access = new FakeAdminAccess()
     renderPanel(access)
     await signInHeading()
 
     await signIn('998 123-4567', 'hilo-y-aguja')
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Pedidos' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Clientes' })).toBeInTheDocument()
     expect(access.signInAttempts).toEqual([{ phone: '9981234567', password: 'hilo-y-aguja' }])
   })
 

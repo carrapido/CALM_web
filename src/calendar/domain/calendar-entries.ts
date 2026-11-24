@@ -1,6 +1,7 @@
 import type { Appointment } from '../../agenda/domain/appointment'
+import { hasOrder } from '../../orders/application/appointments-awaiting-order'
 import type { CalendarDate } from '../../shared/domain/calendar-date'
-import { isActive, isReadyForPickup, type Order } from '../../orders/domain/order'
+import { isActive, isReadyForPickup, orderKey, type Order } from '../../orders/domain/order'
 
 // Where an order stands, which its chip shows by color.
 export type OrderTone = 'active' | 'ready' | 'finished'
@@ -17,12 +18,21 @@ export type CalendarFilter = {
 }
 
 // Appointments by time come before orders by ticket, so each day lists them in that order.
+// An appointment that already became an order shows only as that order.
 export function calendarEntries(appointments: Appointment[], orders: Order[]): CalendarEntry[] {
-  return [...appointmentEntries(appointments), ...orderEntries(orders)]
+  const awaitingOrder = appointments.filter((appointment) => !hasOrder(appointment, orders))
+  return [...appointmentEntries(awaitingOrder), ...orderEntries(orders)]
 }
 
 export function entriesOn(entries: CalendarEntry[], date: CalendarDate): CalendarEntry[] {
   return entries.filter((entry) => entry.date === date)
+}
+
+// Tells entries apart: an appointment by ticket, day and time; an order as orderKey does.
+export function entryKey(entry: CalendarEntry): string {
+  if (entry.kind === 'order') return `order-${orderKey(entry.order)}`
+  const { ticket, date, time } = entry.appointment
+  return `appointment-${ticket}-${date}-${time}`
 }
 
 // Todo hides finished orders, as the workshop list does.

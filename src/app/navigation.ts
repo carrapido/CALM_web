@@ -2,7 +2,6 @@ import { useSyncExternalStore } from 'react'
 
 export const SECTIONS = [
   { id: 'agenda', label: 'Agenda', icon: 'calendar_month' },
-  { id: 'pedidos', label: 'Pedidos', icon: 'checkroom' },
   { id: 'catalogo', label: 'Catálogo', icon: 'sell' },
   { id: 'clientes', label: 'Clientes', icon: 'group' },
 ] as const

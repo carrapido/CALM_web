@@ -19,10 +19,10 @@ describe('Admin shell navigation', () => {
   it('shows the clicked page and moves the current mark to its link', async () => {
     renderApp()
 
-    await userEvent.click(navigationLink('Pedidos'))
+    await userEvent.click(navigationLink('Catálogo'))
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Pedidos' })).toBeInTheDocument()
-    expect(navigationLink('Pedidos')).toHaveAttribute('aria-current', 'page')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Catálogo' })).toBeInTheDocument()
+    expect(navigationLink('Catálogo')).toHaveAttribute('aria-current', 'page')
     expect(navigationLink('Agenda')).not.toHaveAttribute('aria-current')
   })
 
@@ -51,10 +51,10 @@ describe('Admin shell navigation', () => {
     expect(await screen.findByText('No hay clientes.')).toBeInTheDocument()
   })
 
-  it('lists the four admin sections', () => {
+  it('lists the three admin sections', () => {
     renderApp()
 
-    const expectedNames = ['Agenda', 'Pedidos', 'Catálogo', 'Clientes']
+    const expectedNames = ['Agenda', 'Catálogo', 'Clientes']
     const links = within(adminNavigation()).getAllByRole('link')
 
     expect(links).toHaveLength(expectedNames.length)

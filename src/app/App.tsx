@@ -1,11 +1,10 @@
 import type { AgendaRepository } from '../agenda/application/agenda-repository'
-import { AgendaPage } from '../agenda/ui/AgendaPage'
+import { AgendaCalendarPage } from '../calendar/ui/AgendaCalendarPage'
 import type { CatalogRepository } from '../catalog/application/catalog-repository'
 import { CatalogPage } from '../catalog/ui/CatalogPage'
 import type { ClientsRepository } from '../clients/application/clients-repository'
 import { ClientsPage } from '../clients/ui/ClientsPage'
 import type { OrdersRepository } from '../orders/application/orders-repository'
-import { OrdersPage } from '../orders/ui/OrdersPage'
 import { AdminShell } from './layout/AdminShell'
 import { useCurrentPage, type Page } from './navigation'
 
@@ -42,12 +41,10 @@ function PageContent({
 }: PageContentProps) {
   switch (page.id) {
     case 'agenda':
-      return <AgendaPage repository={agendaRepository} now={now} />
-    case 'pedidos':
       return (
-        <OrdersPage
-          ordersRepository={ordersRepository}
+        <AgendaCalendarPage
           agendaRepository={agendaRepository}
+          ordersRepository={ordersRepository}
           now={now}
           random={random}
         />
