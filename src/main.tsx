@@ -3,9 +3,10 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { SupabaseAdminAccess } from './services/supabase-admin-access'
 import { AccessGate } from './components/AccessGate'
+import { ApiCatalogRepository } from './services/api-catalog-repository'
+import { ApiClient } from './services/api-client'
 import { SupabaseAgendaRepository } from './services/supabase-agenda-repository'
 import { App } from './App'
-import { SupabaseCatalogRepository } from './services/supabase-catalog-repository'
 import { SupabaseClientsRepository } from './services/supabase-clients-repository'
 import { SupabaseOrdersRepository } from './services/supabase-orders-repository'
 import type { Database } from './types/database.types'
@@ -21,9 +22,14 @@ const supabase = createClient<Database>(
   requiredSetting('VITE_SUPABASE_PUBLISHABLE_KEY', import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY),
 )
 const adminAccess = new SupabaseAdminAccess(supabase)
+// https://supabase.com/docs/reference/javascript/auth-getsession
+const api = new ApiClient(requiredSetting('VITE_API_URL', import.meta.env.VITE_API_URL), async () => {
+  const { data } = await supabase.auth.getSession()
+  return data.session?.access_token
+})
 const agendaRepository = new SupabaseAgendaRepository(supabase)
 const ordersRepository = new SupabaseOrdersRepository(supabase)
-const catalogRepository = new SupabaseCatalogRepository(supabase)
+const catalogRepository = new ApiCatalogRepository(api)
 const clientsRepository = new SupabaseClientsRepository(supabase)
 
 const now = () => new Date()
