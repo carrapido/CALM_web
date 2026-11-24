@@ -11,7 +11,14 @@ export function createPool(databaseUrl: string, caCertificatePath?: string): Poo
   const ssl = caCertificatePath
     ? { ca: readFileSync(caCertificatePath, 'utf8'), rejectUnauthorized: true }
     : { rejectUnauthorized: false } // safe-anything:ignore (development only, see above)
-  return new Pool({ connectionString: databaseUrl, ssl })
+  const pool = new Pool({ connectionString: databaseUrl, ssl })
+  // An idle client that loses its connection (pooler timeout, restart) emits 'error' on the
+  // pool; without a listener Node would crash. The pool drops that client and opens a new one.
+  // https://node-postgres.com/apis/pool#error
+  pool.on('error', (error) => {
+    console.error('Lost an idle database connection', error)
+  })
+  return pool
 }
 
 export async function checkConnection(pool: Pool): Promise<void> {
