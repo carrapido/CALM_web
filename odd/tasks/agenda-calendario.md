@@ -30,7 +30,7 @@ Unify the agenda and orders screens into one "Agenda" section with a month calen
 - [x] T5 (S3) Verify: full suite, build, lint; every pre-existing agenda/orders action still covered. Route: inline. Commit: — (verification only)
 
 - [x] T6 (S10, S11) Migrate old-screen tests onto the unified page, add route-level action tests, remove AgendaPage/OrdersPage dead code, change old texts. Route: worker. Commit: b983450
-- [ ] T7 (S12) Split feat/agenda-calendario into stacked branches of about 400 lines; verify each. Route: inline (git). Commit: —
+- [x] T7 (S12) Split feat/agenda-calendario into stacked branches of about 400 lines; verify each. Route: inline (git). Commit: 2b2bc78, 7f2e5bc, 82fdbf2, 41b1b32, 0c1c74e
 
 ## Log
 
@@ -51,3 +51,4 @@ Unify the agenda and orders screens into one "Agenda" section with a month calen
 - **L15** User: "Ya rebice las pantallas estan bien, deja en el repo las nuevas pruebas, puedes quitar las de lan pantallas anteriores, cambio los textos viejos. Divide la rama a la practica recomendada". Decision: old page tests are migrated onto the unified page rather than dropped, so the reused components (DayView, AppointmentDetail, OrderDetail, NewOrderSheet, MyScheduleForm, BlockDayControl, WeekView) stay covered; chain strategy: stacked PRs to main (each slice lands on its own), branches local only, push and PRs stay with the user.
 - **L16** T6 in b983450: 76 old page tests ported to src/calendar/ui/*.test.tsx (none dropped, a few renamed where the list UI became chips), 8 route-level action tests, AgendaPage/OrdersPage/OrdersContainer/OrdersView and old kits removed, "Volver a la agenda" wording. 203/203 tests, tsc, oxlint, build OK.
 - **L17** T7 plan (one slicing pass, stacked PRs to main): 1 design+doc, 2 calendar domain (src at 9dec3cc), 3 shared extractions (PeriodChanger/DayView, order-listing/FinishedNotice/OrdersView/OrdersContainer from ae7ba46), 4 unified page + nav + citas pendientes fix (src at 183ecfb), 5 test migration + old screens removed + wording (src at b983450). Slices 1, 4 and 5 exceed 400 lines (mockup HTML; new page with its tests; moved tests) and are reported as size:exception. Original feat/agenda-calendario kept as the reference; the last slice must match it exactly.
+- **L18** T7 done: stacked branches agenda-cal/1-design (2b2bc78, +1231, mockups and docs), 2-domain (7f2e5bc, +257), 3-shared-extractions (82fdbf2, +145/-97), 4-unified-page (41b1b32, +1191/-17, new page with its tests: size:exception), 5-tests-cleanup (0c1c74e, mostly moved tests). Each slice verified on its own: tests (163, 178, 178, 195, 203), tsc, oxlint, build. Final tree identical to feat/agenda-calendario. Incident: git diff --diff-filter=D skips renames; used --no-renames for the old test deletions.
