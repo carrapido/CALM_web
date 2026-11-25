@@ -1,10 +1,10 @@
 // @vitest-environment node
 import { argon2Verify } from 'hash-wasm'
 import request from 'supertest'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { hashNip } from '../src/utils/nip.js'
 import { InMemoryClientRepository, type StoredClient } from './in-memory-client-repository.js'
-import { asAdmin, CLIENT_TOKEN, RecordingAuthAccounts, testApp } from './test-app.js'
+import { asAdmin, asClient, CLIENT_TOKEN, RecordingAuthAccounts, testApp } from './test-app.js'
 
 // Rosa already signs in to the app; Lucía came to the counter and has no NIP yet.
 const ROSA: StoredClient = {
@@ -25,10 +25,20 @@ const ID_PROBLEM = { error: 'El identificador del cliente no es válido.', code:
 
 const NEW_MARTA = { name: 'Marta Gil', phone: '9985551234', nip: '4321' }
 
-function clientsApp() {
-  const clients = new InMemoryClientRepository([ROSA, LUCIA])
-  const authAccounts = new RecordingAuthAccounts()
+const ROSA_HISTORY = { appointments: 2, orders: 1 }
+const LUCIA_HISTORY = { appointments: 1, orders: 0 }
+
+function clientsApp(authAccounts = new RecordingAuthAccounts()) {
+  const clients = new InMemoryClientRepository([ROSA, LUCIA], { 1: ROSA_HISTORY, 2: LUCIA_HISTORY })
   return { app: testApp({ clients, authAccounts }), clients, authAccounts }
+}
+
+// Supabase Auth refusing to delete her user.
+class FailingDeleteAuthAccounts extends RecordingAuthAccounts {
+  async deleteUser(userId: string): Promise<void> {
+    await super.deleteUser(userId)
+    throw new Error('Supabase Auth is down')
+  }
 }
 
 describe('hashNip', () => {
@@ -231,5 +241,115 @@ describe('PUT /api/clients/:id/access', () => {
     expect(response.body).toEqual(PHONE_TAKEN)
     expect(await clients.all()).toEqual([PUBLIC_ROSA, PUBLIC_LUCIA])
     expect(authAccounts.emailChanges).toEqual([])
+  })
+})
+
+describe('GET /api/clients/:id/history', () => {
+  it('answers how many appointments and orders she has', async () => {
+    const response = await request(clientsApp().app).get('/api/clients/1/history').set(asAdmin())
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual(ROSA_HISTORY)
+  })
+
+  it.each(['abc', '0', '-1', '1.5'])('answers 400 for the id %s', async (id) => {
+    const response = await request(clientsApp().app).get(`/api/clients/${id}/history`).set(asAdmin())
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual(ID_PROBLEM)
+  })
+
+  it('answers 404 for a client that does not exist', async () => {
+    const response = await request(clientsApp().app).get('/api/clients/99/history').set(asAdmin())
+
+    expect(response.status).toBe(404)
+    expect(response.body).toEqual(NOT_FOUND)
+  })
+
+  it('answers 401 without a session and 403 to a non-admin', async () => {
+    const { app } = clientsApp()
+
+    const anonymous = await request(app).get('/api/clients/1/history')
+    const client = await request(app).get('/api/clients/1/history').set(asClient())
+
+    expect(anonymous.status).toBe(401)
+    expect(client.status).toBe(403)
+    expect(client.body.code).toBe('not_admin')
+  })
+})
+
+describe('DELETE /api/clients/:id', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('deletes her with her history and her auth user, answers 204, and leaves the others', async () => {
+    const { app, authAccounts } = clientsApp()
+
+    const response = await request(app).delete('/api/clients/1').set(asAdmin())
+
+    expect(response.status).toBe(204)
+    expect(response.text).toBe('')
+    expect((await request(app).get('/api/clients').set(asAdmin())).body).toEqual([PUBLIC_LUCIA])
+    expect((await request(app).get('/api/clients/1/history').set(asAdmin())).status).toBe(404)
+    expect((await request(app).get('/api/clients/2/history').set(asAdmin())).body).toEqual(LUCIA_HISTORY)
+    expect(authAccounts.deletedUsers).toEqual(['rosa-user'])
+  })
+
+  it('deletes a client who never signed in to the app without touching Supabase Auth', async () => {
+    const { app, clients, authAccounts } = clientsApp()
+
+    const response = await request(app).delete('/api/clients/2').set(asAdmin())
+
+    expect(response.status).toBe(204)
+    expect(await clients.all()).toEqual([PUBLIC_ROSA])
+    expect(authAccounts.deletedUsers).toEqual([])
+  })
+
+  it('keeps her and answers 500 when Supabase Auth cannot delete her user, so a retry can finish', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { app, clients, authAccounts } = clientsApp(new FailingDeleteAuthAccounts())
+
+    const response = await request(app).delete('/api/clients/1').set(asAdmin())
+
+    expect(response.status).toBe(500)
+    expect(response.body.code).toBe('unavailable')
+    expect(await clients.all()).toEqual([PUBLIC_ROSA, PUBLIC_LUCIA])
+    expect(await clients.history('1')).toEqual(ROSA_HISTORY)
+    expect(authAccounts.deletedUsers).toEqual(['rosa-user'])
+  })
+
+  it('answers 404 for a client that does not exist and deletes nothing', async () => {
+    const { app, clients, authAccounts } = clientsApp()
+
+    const response = await request(app).delete('/api/clients/99').set(asAdmin())
+
+    expect(response.status).toBe(404)
+    expect(response.body).toEqual(NOT_FOUND)
+    expect(await clients.all()).toEqual([PUBLIC_ROSA, PUBLIC_LUCIA])
+    expect(authAccounts.deletedUsers).toEqual([])
+  })
+
+  it.each(['abc', '0', '-1', '1.5'])('answers 400 for the id %s and deletes nothing', async (id) => {
+    const { app, clients } = clientsApp()
+
+    const response = await request(app).delete(`/api/clients/${id}`).set(asAdmin())
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual(ID_PROBLEM)
+    expect(await clients.all()).toEqual([PUBLIC_ROSA, PUBLIC_LUCIA])
+  })
+
+  it('answers 401 without a session and 403 to a non-admin, and deletes nothing', async () => {
+    const { app, clients, authAccounts } = clientsApp()
+
+    const anonymous = await request(app).delete('/api/clients/1')
+    const client = await request(app).delete('/api/clients/1').set(asClient())
+
+    expect(anonymous.status).toBe(401)
+    expect(client.status).toBe(403)
+    expect(client.body.code).toBe('not_admin')
+    expect(await clients.all()).toEqual([PUBLIC_ROSA, PUBLIC_LUCIA])
+    expect(authAccounts.deletedUsers).toEqual([])
   })
 })

@@ -12,7 +12,7 @@ Resultado observado (sin `TEST_DATABASE_URL`, así que las pruebas de SQL se sal
 
 ```text
  Test Files  10 passed | 1 skipped (11)
-      Tests  289 passed | 43 skipped (332)
+      Tests  305 passed | 49 skipped (354)
 ```
 
 | Archivo | Pruebas | Qué cubre |
@@ -20,14 +20,14 @@ Resultado observado (sin `TEST_DATABASE_URL`, así que las pruebas de SQL se sal
 | `app.test.ts` | 34 | Salud, CORS (con la lista de orígenes), guardia de administradora, rutas inexistentes, middleware de errores (con el mensaje de cada restricción conocida), 413 y 415. |
 | `request-log.test.ts` | 4 | Una línea por petición con método, ruta, código y tiempo, sin token ni cuerpo. |
 | `services.test.ts` | 31 | Catálogo de servicios. |
-| `clients.test.ts` | 34 | Clientes y hash del NIP. |
+| `clients.test.ts` | 50 | Clientes, hash del NIP y borrado de clientas. |
 | `agenda.test.ts` | 45 | Horario, días bloqueados y citas. |
 | `orders.test.ts` | 44 | Pedidos. |
 | `client-app.test.ts` | 86 | API de la app de clientas (`/api/client/*`): guardia de la clienta, inicio de sesión, límite de intentos, lecturas, agendar, cancelar, «Voy en camino» y perfil. |
 | `supabase-auth.test.ts` | 7 | Cómo se interpreta la respuesta de Supabase Auth al verificar un token. |
 | `supabase-sessions.test.ts` | 3 | Cómo la API crea el usuario de Auth de una clienta y le abre una sesión (refresh token). |
 | `database.test.ts` | 1 | Una conexión inactiva que se cae no tumba el servidor. |
-| `repositories.sql.test.ts` | 43 | Los repositorios de SQL contra un Postgres desechable (ver [Repositorios contra Postgres](#repositorios-contra-postgres)). |
+| `repositories.sql.test.ts` | 48 | Los repositorios de SQL contra un Postgres desechable (ver [Repositorios contra Postgres](#repositorios-contra-postgres)). |
 
 Las pruebas levantan la app de Express real (`createApp`) con `supertest`; solo cambian Supabase Auth y Postgres por repositorios en memoria (`backend/test/in-memory-*.ts`). Así comprueban rutas, validación, códigos y cuerpos JSON sin tocar la base real. Las pruebas de rechazo también comprueban que **no cambió nada** en los datos.
 
@@ -92,6 +92,15 @@ En la columna **Observado**, ✅ significa que la respuesta fue exactamente la e
 | Cambia celular de usuaria de la app | `PUT /api/clients/1/access` con celular nuevo | 200 y renombra su correo de Auth | ✅ 200 | clients › PUT /api/clients/:id/access › renames the auth email of an app user whose phone changes |
 | No existe | `PUT /api/clients/99/access` | 404 `Ese cliente ya no existe.` | ✅ 404 | clients › PUT /api/clients/:id/access › answers 404 for a client that does not exist |
 | Celular de otra | `PUT /api/clients/1/access` con el celular de la 2 | 409 `phone_taken`; no renombra | ✅ 409 | clients › PUT /api/clients/:id/access › answers 409 when another client has the phone, and renames nothing |
+| Historial | `GET /api/clients/1/history` | 200 `{"appointments":2,"orders":1}` | ✅ 200 | clients › GET /api/clients/:id/history › answers how many appointments and orders she has |
+| Historial: id inválido / no existe | `GET /api/clients/abc/history`, `GET /api/clients/99/history` | 400 `El identificador del cliente no es válido.`; 404 `Ese cliente ya no existe.` | ✅ 400 / 404 | clients › GET /api/clients/:id/history › answers 400 for the id %s; answers 404 for a client that does not exist |
+| Historial sin sesión / no admin | Sin token y con `TOKEN_CLIENTA` | 401 y 403 `not_admin` | ✅ 401 / 403 | clients › GET /api/clients/:id/history › answers 401 without a session and 403 to a non-admin |
+| Borrar | `DELETE /api/clients/1` (usa la app) | 204 sin cuerpo; ya no está en la lista ni tiene historial; la 2 sigue igual; se borra su usuario de Auth | ✅ 204 | clients › DELETE /api/clients/:id › deletes her with her history and her auth user, answers 204, and leaves the others |
+| Borrar sin app | `DELETE /api/clients/2` | 204; no toca Supabase Auth | ✅ 204 | clients › DELETE /api/clients/:id › deletes a client who never signed in to the app without touching Supabase Auth |
+| Auth no borra su usuario | `DELETE /api/clients/1` con Supabase Auth fallando | 500 `unavailable`; no se borra nada (ella y su historial siguen) | ✅ 500 | clients › DELETE /api/clients/:id › keeps her and answers 500 when Supabase Auth cannot delete her user, so a retry can finish |
+| Borrar: no existe | `DELETE /api/clients/99` | 404 `Ese cliente ya no existe.`; no borra nada | ✅ 404 | clients › DELETE /api/clients/:id › answers 404 for a client that does not exist and deletes nothing |
+| Borrar: id inválido | `DELETE /api/clients/abc` (y `0`, `-1`, `1.5`) | 400 `El identificador del cliente no es válido.`; no borra nada | ✅ 400 | clients › DELETE /api/clients/:id › answers 400 for the id %s and deletes nothing |
+| Borrar sin sesión / no admin | Sin token y con `TOKEN_CLIENTA` | 401 y 403 `not_admin`; no borra nada | ✅ 401 / 403 | clients › DELETE /api/clients/:id › answers 401 without a session and 403 to a non-admin, and deletes nothing |
 
 ## Agenda: horario, días bloqueados y citas
 
@@ -193,7 +202,7 @@ Resultado observado contra `postgres:17-alpine` en Docker:
 
 ```text
  Test Files  1 passed (1)
-      Tests  43 passed (43)
+      Tests  49 passed (49)
 ```
 
 | Repositorio | Caso | Esperado | Observado |
@@ -209,6 +218,11 @@ Resultado observado contra `postgres:17-alpine` en Docker:
 | clients | Usuaria de la app cambia de celular | Devuelve su usuario de Auth para renombrarlo | ✅ |
 | clients | Dar NIP con un celular ocupado | `phoneTaken`; ni la clienta ni sus intentos cambian | ✅ |
 | clients | Cliente 99 | `notFound` | ✅ |
+| clients | Historial de Ana, de Carmen y del 99 | `{1 cita, 2 pedidos}`, `{0 citas, 1 pedido}`, `notFound` | ✅ |
+| clients (borrar) | Borrar a Ana, ligada a un usuario de Auth y con su celular bloqueado | Devuelve su usuario de Auth; quedan 5 clientes, 4 citas, 5 servicios de cita, 4 pedidos y solo el bloqueo de Rosa; el historial de Rosa no cambia | ✅ |
+| clients (borrar) | Borrar a Carmen (sin celular) | Sin usuario de Auth; se va su pedido | ✅ |
+| clients (borrar) | Borrar al 99 | `notFound`; ningún conteo cambia | ✅ |
+| clients (borrar) | Borrar a Lucía cuando un pedido de Marta apunta a su cita | 23503 de `orders_appointment_id_fkey` a mitad de la transacción; ningún conteo cambia y su bloqueo sigue | ✅ |
 | agenda | Leer y guardar la semana | La del seed; luego la nueva | ✅ |
 | agenda | Semana con un día que cierra antes de abrir | 23514; los siete días siguen como estaban | ✅ |
 | agenda | Bloquear el mismo día dos veces y desbloquearlo | Aparece una vez; luego ya no | ✅ |

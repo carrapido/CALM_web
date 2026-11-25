@@ -1,6 +1,6 @@
 import { DatabaseError, type Pool, type PoolClient } from 'pg'
 import type {
-  AppAccess, Client, ClientRepository, GrantedAccess, NewClient,
+  AppAccess, Client, ClientHistory, ClientRepository, DeleteAuthUser, GrantedAccess, NewClient, RemovedClient,
 } from '../types/client.js'
 import { inTransaction } from '../utils/in-transaction.js'
 
@@ -29,6 +29,14 @@ const UPDATE_ACCESS = `update clients
   where id = $3
   returning ${COLUMNS}`
 
+const LOCK_ACCESS_BEFORE = 'select phone, user_id from clients where id = $1 for update'
+
+const HISTORY = `select
+    (select count(*) from appointments where client_id = clients.id)::int as appointments,
+    (select count(*) from orders where client_id = clients.id)::int as orders
+  from clients
+  where id = $1`
+
 const UNIQUE_VIOLATION = '23505'
 
 export function clientRepository(pool: Pool): ClientRepository {
@@ -56,6 +64,15 @@ export function clientRepository(pool: Pool): ClientRepository {
         throw error
       }
     },
+
+    async history(clientId) {
+      const { rows } = await pool.query<ClientHistory>(HISTORY, [clientId])
+      return rows[0] ?? 'notFound'
+    },
+
+    async remove(clientId, deleteAuthUser) {
+      return inTransaction(pool, (db) => deleteClient(db, clientId, deleteAuthUser))
+    },
   }
 }
 
@@ -66,7 +83,7 @@ async function insertClient(db: PoolClient, { name, phone, nipHash }: NewClient)
 }
 
 async function updateAccess(db: PoolClient, { clientId, phone, nipHash }: AppAccess): Promise<GrantedAccess | 'notFound'> {
-  const before = await db.query<AccessBefore>('select phone, user_id from clients where id = $1 for update', [clientId])
+  const before = await db.query<AccessBefore>(LOCK_ACCESS_BEFORE, [clientId])
   const previous = before.rows[0]
   if (previous === undefined) return 'notFound'
 
@@ -74,6 +91,25 @@ async function updateAccess(db: PoolClient, { clientId, phone, nipHash }: AppAcc
   await clearSignInAttempts(db, [phone, previous.phone])
   const isRenamed = previous.user_id !== null && previous.phone !== phone
   return { client: clientFromRow(onlyRow(rows)), authUserToRename: isRenamed ? previous.user_id : null }
+}
+
+// Orders first, since they point to her appointments; appointment_services goes with each
+// appointment (on delete cascade).
+async function deleteClient(
+  db: PoolClient,
+  clientId: string,
+  deleteAuthUser: DeleteAuthUser,
+): Promise<RemovedClient | 'notFound'> {
+  const before = await db.query<AccessBefore>(LOCK_ACCESS_BEFORE, [clientId])
+  const client = before.rows[0]
+  if (client === undefined) return 'notFound'
+
+  await db.query('delete from orders where client_id = $1', [clientId])
+  await db.query('delete from appointments where client_id = $1', [clientId])
+  await clearSignInAttempts(db, [client.phone])
+  await db.query('delete from clients where id = $1', [clientId])
+  if (client.user_id !== null) await deleteAuthUser(client.user_id)
+  return { authUserId: client.user_id }
 }
 
 // A fresh NIP starts with a clean slate: a lockout earned by the forgotten one is lifted, on the
