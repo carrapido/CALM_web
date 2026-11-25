@@ -10,6 +10,8 @@ export function clientRouter(clients: ClientRepository, authAccounts: AuthAccoun
   router.get('/', asyncHandler(controller.list))
   router.post('/', asyncHandler(controller.create))
   router.put('/:id/access', asyncHandler(controller.grantAccess))
+  router.get('/:id/history', asyncHandler(controller.history))
+  router.delete('/:id', asyncHandler(controller.remove))
 
   return router
 }

@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import { createElement } from 'react'
+import { ApiError } from '../services/api-client'
 import type { ClientsRepository, EnrollmentOutcome } from '../services/clients-repository'
 import type { Client } from '../types/client'
 import type { Enrollment } from '../utils/enrollment'
@@ -25,6 +26,13 @@ export class AnsweringClientsRepository extends InMemoryClientsRepository {
   async enroll(enrollment: Enrollment): Promise<EnrollmentOutcome> {
     this.enrollments.push(enrollment)
     return this.outcome
+  }
+}
+
+// Refuses every deletion as the API does for a client someone already deleted.
+export class RefusingRemovalClientsRepository extends InMemoryClientsRepository {
+  async remove(): Promise<void> {
+    throw new ApiError(404, 'not_found', 'Ese cliente ya no existe.')
   }
 }
 

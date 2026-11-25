@@ -14,5 +14,11 @@ export function supabaseAuthAccounts(supabaseUrl: string, serviceRoleKey: string
       const { error } = await client.auth.admin.updateUserById(userId, { email, email_confirm: true })
       if (error !== null) throw error
     },
+
+    // https://supabase.com/docs/reference/javascript/auth-admin-deleteuser
+    async deleteUser(userId) {
+      const { error } = await client.auth.admin.deleteUser(userId)
+      if (error !== null) throw error
+    },
   }
 }

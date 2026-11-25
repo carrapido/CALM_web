@@ -1,5 +1,5 @@
 import { ApiError, type ApiClient } from './api-client'
-import type { ClientsRepository, EnrollmentField, EnrollmentOutcome } from './clients-repository'
+import type { ClientHistory, ClientsRepository, EnrollmentField, EnrollmentOutcome } from './clients-repository'
 import type { Client } from '../types/client'
 import type { Enrollment } from '../utils/enrollment'
 
@@ -33,6 +33,14 @@ export class ApiClientsRepository implements ClientsRepository {
     } catch (error) {
       return outcomeOfRefusal(error)
     }
+  }
+
+  history(id: string): Promise<ClientHistory> {
+    return this.api.json('GET', `/clients/${id}/history`)
+  }
+
+  async remove(id: string): Promise<void> {
+    await this.api.send('DELETE', `/clients/${id}`)
   }
 
   private sendEnrollment(enrollment: Enrollment): Promise<Response> {

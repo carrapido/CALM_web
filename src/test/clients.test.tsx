@@ -5,6 +5,7 @@ import { InMemoryClientsRepository } from './in-memory-clients-repository'
 import {
   AnsweringClientsRepository,
   CLIENTS,
+  RefusingRemovalClientsRepository,
   button,
   clientCard,
   clientList,
@@ -13,6 +14,8 @@ import {
 } from './clients-test-kit'
 
 const UNAVAILABLE_MESSAGE = 'No pudimos guardar. Revisa tu internet e inténtalo de nuevo.'
+
+const HISTORIES = { 1: { appointments: 2, orders: 1 }, 2: { appointments: 1, orders: 0 } }
 
 describe('Client list', () => {
   it('lists every client alphabetically', async () => {
@@ -223,5 +226,74 @@ describe('Server refusals', () => {
     await userEvent.click(button('Guardar acceso'))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(UNAVAILABLE_MESSAGE)
+  })
+})
+
+describe('Delete a client', () => {
+  async function startDeleting(name: string): Promise<HTMLElement> {
+    const card = await clientCard(name)
+    await userEvent.click(within(card).getByRole('button', { name: 'Borrar cliente' }))
+    return card
+  }
+
+  it('says inline how many appointments and orders go with her, and her app access', async () => {
+    renderClients(new InMemoryClientsRepository(CLIENTS, HISTORIES))
+
+    const rosa = await startDeleting('Rosa Méndez')
+
+    expect(await within(rosa).findByText('¿Borrar a Rosa Méndez?')).toBeInTheDocument()
+    expect(within(rosa).getByText(
+      'Se borrarán Rosa Méndez, 2 citas y 1 pedido a su nombre, y su acceso a la app. No se puede deshacer.',
+    )).toBeInTheDocument()
+    expect(within(rosa).getByRole('button', { name: 'Borrar cliente' })).toBeInTheDocument()
+    expect(within(rosa).getByRole('button', { name: 'Conservar cliente' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('leaves out the app access of a client without it', async () => {
+    renderClients(new InMemoryClientsRepository(CLIENTS, HISTORIES))
+
+    const lucia = await startDeleting('Lucía Pérez')
+
+    expect(await within(lucia).findByText(
+      'Se borrarán Lucía Pérez, 1 cita y 0 pedidos a su nombre. No se puede deshacer.',
+    )).toBeInTheDocument()
+  })
+
+  it('keeps her when the admin changes her mind', async () => {
+    const repository = new InMemoryClientsRepository(CLIENTS, HISTORIES)
+    renderClients(repository)
+
+    const rosa = await startDeleting('Rosa Méndez')
+    await userEvent.click(await within(rosa).findByRole('button', { name: 'Conservar cliente' }))
+
+    expect(within(rosa).queryByText('¿Borrar a Rosa Méndez?')).not.toBeInTheDocument()
+    expect(within(rosa).getByRole('button', { name: 'Borrar cliente' })).toBeInTheDocument()
+    expect(within(await clientList()).getAllByRole('listitem')).toHaveLength(3)
+    expect(repository.removedIds).toEqual([])
+  })
+
+  it('deletes her once confirmed, reloads the list and says so', async () => {
+    const repository = new InMemoryClientsRepository(CLIENTS, HISTORIES)
+    renderClients(repository)
+
+    const rosa = await startDeleting('Rosa Méndez')
+    await userEvent.click(await within(rosa).findByRole('button', { name: 'Borrar cliente' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Rosa Méndez se borró.')
+    await waitFor(() => expect(within(screen.getByRole('list', { name: 'Clientes' })).getAllByRole('listitem')).toHaveLength(2))
+    expect(screen.getByRole('list', { name: 'Clientes' })).not.toHaveTextContent('Rosa Méndez')
+    expect(repository.removedIds).toEqual(['1'])
+  })
+
+  it('shows the refusal and keeps her in the list when the deletion fails', async () => {
+    renderClients(new RefusingRemovalClientsRepository(CLIENTS, HISTORIES))
+
+    const rosa = await startDeleting('Rosa Méndez')
+    await userEvent.click(await within(rosa).findByRole('button', { name: 'Borrar cliente' }))
+
+    expect(await within(rosa).findByRole('alert')).toHaveTextContent('Ese cliente ya no existe.')
+    expect(screen.getByRole('status')).toHaveTextContent('')
+    expect(within(await clientList()).getAllByRole('listitem')).toHaveLength(3)
   })
 })

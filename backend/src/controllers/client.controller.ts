@@ -1,6 +1,7 @@
 // Gives clients access to the app from the panel, as the admin-enroll-client Edge Function did:
 // a new client with the NIP she dictates at the counter, or an existing one who gets a NIP, or a
-// new one when she forgot hers. The NIP is hashed here and never stored as typed.
+// new one when she forgot hers. The NIP is hashed here and never stored as typed. It also deletes a
+// client with everything of hers, such as the test clients.
 import type { Request, Response } from 'express'
 import type { AuthAccounts, ClientRepository } from '../types/client.js'
 import { authEmailOf } from '../utils/client-auth.js'
@@ -41,6 +42,18 @@ export function clientController(clients: ClientRepository, authAccounts: AuthAc
         await authAccounts.updateEmail(granted.authUserToRename, authEmailOf(phone))
       }
       res.json({ client: granted.client })
+    },
+
+    async history(req: Request, res: Response): Promise<void> {
+      const history = await clients.history(clientIdOf(req))
+      if (history === 'notFound') throw CLIENT_NOT_FOUND
+      res.json(history)
+    },
+
+    async remove(req: Request, res: Response): Promise<void> {
+      const removed = await clients.remove(clientIdOf(req), (userId) => authAccounts.deleteUser(userId))
+      if (removed === 'notFound') throw CLIENT_NOT_FOUND
+      res.status(204).end()
     },
   }
 }

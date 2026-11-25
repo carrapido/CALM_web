@@ -11,9 +11,15 @@ export type EnrollmentOutcome =
   // It never answered, or answered something unexpected.
   | { kind: 'unavailable' }
 
+// What deleting a client takes with her.
+export type ClientHistory = { appointments: number; orders: number }
+
 // Port: the CALM API in the running app, in memory in tests.
 export interface ClientsRepository {
   clients(): Promise<Client[]>
   // Registers a new client or gives an existing one access with a new NIP.
   enroll(enrollment: Enrollment): Promise<EnrollmentOutcome>
+  history(id: string): Promise<ClientHistory>
+  // Permanent: her appointments, orders and app access go with her.
+  remove(id: string): Promise<void>
 }

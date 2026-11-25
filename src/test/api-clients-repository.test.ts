@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ApiClient } from '../services/api-client'
+import { ApiClient, ApiError } from '../services/api-client'
 import { ApiClientsRepository } from '../services/api-clients-repository'
 import type { Client } from '../types/client'
 
@@ -85,6 +85,27 @@ describe('The clients through the API', () => {
     const { repository } = fakeApi(answer)
 
     expect(await repository.enroll(EXISTING_CLIENT)).toEqual({ kind: 'unavailable' })
+  })
+
+  it('reads how many appointments and orders a client has', async () => {
+    const { repository, sent } = fakeApi(() => json(200, { appointments: 2, orders: 1 }))
+
+    expect(await repository.history('7')).toEqual({ appointments: 2, orders: 1 })
+    expect(sent).toEqual([expect.objectContaining({ url: 'http://localhost:3000/api/clients/7/history', method: 'GET' })])
+  })
+
+  it('deletes a client by her id', async () => {
+    const { repository, sent } = fakeApi(() => new Response(null, { status: 204 }))
+
+    await repository.remove('7')
+
+    expect(sent).toEqual([expect.objectContaining({ url: 'http://localhost:3000/api/clients/7', method: 'DELETE' })])
+  })
+
+  it('throws the refusal of a deletion as the API worded it', async () => {
+    const { repository } = fakeApi(() => json(404, { error: 'Ese cliente ya no existe.', code: 'not_found' }))
+
+    await expect(repository.remove('7')).rejects.toEqual(new ApiError(404, 'not_found', 'Ese cliente ya no existe.'))
   })
 
   it('reads a network failure as unavailable', async () => {

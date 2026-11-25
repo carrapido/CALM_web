@@ -19,12 +19,17 @@ const USER_ID_BY_TOKEN = new Map([
   [CLIENT_TOKEN, CLIENT_USER_ID],
 ])
 
-// Records each auth email change instead of calling Supabase.
+// Records each auth email change and user deletion instead of calling Supabase.
 export class RecordingAuthAccounts implements AuthAccounts {
   readonly emailChanges: { userId: string; email: string }[] = []
+  readonly deletedUsers: string[] = []
 
   async updateEmail(userId: string, email: string): Promise<void> {
     this.emailChanges.push({ userId, email })
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    this.deletedUsers.push(userId)
   }
 }
 

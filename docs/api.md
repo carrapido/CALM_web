@@ -14,6 +14,8 @@ La API (`backend/`) atiende al panel de administración y a la app de clientas (
 | 6 | GET | `/api/clients` | 200 | Listar clientes y si tienen acceso a la app. |
 | 7 | POST | `/api/clients` | 201 | Dar de alta a una clienta con su NIP de la app. |
 | 8 | PUT | `/api/clients/:id/access` | 200 | Dar o renovar el NIP de una clienta existente (puede cambiar su celular). |
+| 28 | GET | `/api/clients/:id/history` | 200 | Cuántas citas y pedidos tiene una clienta (para confirmar antes de borrarla). |
+| 29 | DELETE | `/api/clients/:id` | 204 | Borrar a una clienta con sus citas, sus pedidos y su acceso a la app. |
 | 9 | GET | `/api/schedule` | 200 | Leer el horario semanal («Mi horario»). |
 | 10 | PUT | `/api/schedule` | 200 | Reemplazar los siete días del horario. |
 | 11 | GET | `/api/blocked-dates` | 200 | Listar los días bloqueados. |
@@ -26,6 +28,8 @@ La API (`backend/`) atiende al panel de administración y a la app de clientas (
 | 18 | PUT | `/api/orders/:ticket` | 200 | Cambiar un pedido activo (trabajo, precio, entrega, estado). |
 
 Los endpoints 19 a 27, de la app de clientas, están en [su propia sección](#api-de-la-app-de-clientas).
+
+Los endpoints 28 y 29, para borrar clientas de prueba, se agregaron después y van con los demás de [Clientes](#clientes).
 
 ## Reglas comunes
 
@@ -208,6 +212,30 @@ Forma de una clienta (el hash del NIP nunca sale de la API):
 curl -X POST http://localhost:3000/api/clients \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"name":"Marta Gil","phone":"9985551234","nip":"4321"}'
+```
+
+### 28. `GET /api/clients/:id/history`
+
+| | |
+|---|---|
+| Entrada | `:id` entero positivo |
+| Éxito | **200** `{ "appointments": number, "orders": number }`: cuántas citas y pedidos son suyos |
+| 400 `invalid_input` | `El identificador del cliente no es válido.` |
+| 404 `not_found` | `Ese cliente ya no existe.` |
+| Regla | El panel lo pide antes de confirmar un borrado, para decir cuánto se va con ella. |
+
+### 29. `DELETE /api/clients/:id`
+
+| | |
+|---|---|
+| Entrada | `:id` entero positivo |
+| Éxito | **204** sin cuerpo |
+| 400 `invalid_input` | `El identificador del cliente no es válido.` |
+| 404 `not_found` | `Ese cliente ya no existe.` (no borra nada) |
+| Regla | **Irreversible.** Si ya había entrado a la app (`clients.user_id`), primero borra su usuario de Supabase Auth; si eso falla, no se borra nada y la API responde 500 (se puede reintentar). Después, en una sola transacción, borra sus pedidos, sus citas (con sus servicios, `on delete cascade`), los intentos de inicio de sesión de su celular y su fila; si algo falla ahí, no se borra ninguno de esos datos y ella queda sin acceso a la app, lista para volver a borrarla. El usuario de Auth se borra antes porque Supabase lo borra desde su propia conexión y pone `clients.user_id` en nulo, lo que esperaría para siempre a una fila bloqueada por la transacción. |
+
+```bash
+curl -i -X DELETE http://localhost:3000/api/clients/6 -H "Authorization: Bearer $TOKEN"
 ```
 
 ## Agenda: horario, días bloqueados y citas

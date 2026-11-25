@@ -16,6 +16,9 @@ import type { WeeklySchedule } from '../src/types/agenda.js'
 import type { NewOrder } from '../src/types/order.js'
 import { nipMatches } from '../src/utils/nip.js'
 
+// Deletion tests that do not involve her auth user.
+const KEEP_AUTH_USER = async (): Promise<void> => {}
+
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL
 const ADMIN_ID = '00000000-0000-4000-8000-000000000001'
 const NIP_HASH = 'hash-de-prueba'
@@ -192,6 +195,122 @@ describe.skipIf(TEST_DATABASE_URL === undefined)('The SQL repositories on a thro
       const granted = await clientRepository(pool).grantAccess({ clientId: '99', phone: '9980000009', nipHash: NIP_HASH })
 
       expect(granted).toBe('notFound')
+    })
+
+    it('counts her appointments and orders, and answers notFound for a client that does not exist', async () => {
+      const clients = clientRepository(pool)
+
+      expect(await clients.history('1')).toEqual({ appointments: 1, orders: 2 })
+      expect(await clients.history('4')).toEqual({ appointments: 0, orders: 1 })
+      expect(await clients.history('99')).toBe('notFound')
+    })
+  })
+
+  describe('removing a client', () => {
+    const ANA_USER = '00000000-0000-4000-8000-000000000031'
+
+    async function tableCounts() {
+      return {
+        clients: await countOf('clients'),
+        appointments: await countOf('appointments'),
+        appointmentServices: await countOf('appointment_services'),
+        orders: await countOf('orders'),
+        signInAttempts: await countOf('sign_in_attempts'),
+      }
+    }
+
+    it('deletes her orders, appointments with their services, sign-in attempts and row, and names her auth user', async () => {
+      const clients = clientRepository(pool)
+      await pool.query("insert into auth.users (id, email) values ($1, '9980000001@clients.calm.app')", [ANA_USER])
+      await pool.query('update clients set user_id = $1 where id = 1', [ANA_USER])
+      await lockOut('9980000001', '9980000002')
+      const rosaBefore = await clients.history('2')
+
+      const deletedUsers: string[] = []
+      const removed = await clients.remove('1', async (userId) => {
+        deletedUsers.push(userId)
+      })
+
+      expect(removed).toEqual({ authUserId: ANA_USER })
+      expect(deletedUsers).toEqual([ANA_USER])
+      expect(await clients.history('1')).toBe('notFound')
+      expect(await tableCounts()).toEqual({
+        clients: 5, appointments: 4, appointmentServices: 5, orders: 4, signInAttempts: 1,
+      })
+      expect(await signInAttemptPhones()).toEqual(['9980000002'])
+      expect(await clients.history('2')).toEqual(rosaBefore)
+    })
+
+    it('deletes a counter client without a phone and names no auth user', async () => {
+      const clients = clientRepository(pool)
+
+      expect(await clients.remove('4', KEEP_AUTH_USER)).toEqual({ authUserId: null })
+      expect((await clients.all()).map((client) => client.id)).toEqual(['1', '2', '3', '5', '6'])
+      expect(await countOf('orders')).toBe(5)
+    })
+
+    it('answers notFound for a client that does not exist and deletes nothing', async () => {
+      const before = await tableCounts()
+
+      expect(await clientRepository(pool).remove('99', KEEP_AUTH_USER)).toBe('notFound')
+      expect(await tableCounts()).toEqual(before)
+    })
+
+    it('deletes her and her auth user when Supabase Auth deletes auth.users from its own connection', async () => {
+      await pool.query("insert into auth.users (id, email) values ($1, '9980000001@clients.calm.app')", [ANA_USER])
+      await pool.query('update clients set user_id = $1 where id = 1', [ANA_USER])
+      // As GoTrue does: another connection deletes the auth user, and clients.user_id is "on delete set null".
+      const auth = new Pool({ connectionString: TEST_DATABASE_URL, max: 1 })
+      try {
+        await clientRepository(pool).remove('1', async (userId) => {
+          const db = await auth.connect()
+          try {
+            await db.query("set lock_timeout = '3s'")
+            await db.query('delete from auth.users where id = $1', [userId])
+          } finally {
+            db.release()
+          }
+        })
+      } finally {
+        await auth.end()
+      }
+
+      expect(await clientRepository(pool).history('1')).toBe('notFound')
+      expect(await countOf(`auth.users where id = '${ANA_USER}'`)).toBe(0)
+    }, 10_000)
+
+    it('deletes nothing when her auth user cannot be deleted', async () => {
+      await pool.query("insert into auth.users (id, email) values ($1, '9980000001@clients.calm.app')", [ANA_USER])
+      await pool.query('update clients set user_id = $1 where id = 1', [ANA_USER])
+      await lockOut('9980000001')
+      const before = await tableCounts()
+
+      await expect(
+        clientRepository(pool).remove('1', async () => {
+          throw new Error('Supabase Auth is down')
+        }),
+      ).rejects.toThrow('Supabase Auth is down')
+      expect(await tableCounts()).toEqual(before)
+      expect(await signInAttemptPhones()).toEqual(['9980000001'])
+    })
+
+    it('deletes nothing when a statement fails halfway', async () => {
+      // Marta's order points to Lucía's appointment, so deleting the appointment breaks the foreign key
+      // after Lucía's own orders are already gone inside the transaction.
+      await pool.query(
+        "insert into orders (client_id, appointment_id, ticket, work, final_price_mxn, delivery_date) values (5, 2, '4300', 'Bastilla', 90, current_date + 4)",
+      )
+      await pool.query(
+        "insert into orders (client_id, ticket, work, final_price_mxn, delivery_date) values (3, '4301', 'Parche', 40, current_date + 4)",
+      )
+      await lockOut('9980000003')
+      const before = await tableCounts()
+
+      await expect(clientRepository(pool).remove('3', KEEP_AUTH_USER))
+        .rejects.toMatchObject({ code: '23503', constraint: 'orders_appointment_id_fkey' })
+      expect(await tableCounts()).toEqual(before)
+      expect(await clientRepository(pool).history('3')).toEqual({ appointments: 1, orders: 1 })
+      expect(await signInAttemptPhones()).toEqual(['9980000003'])
     })
   })
 
