@@ -256,6 +256,29 @@ describe.skipIf(TEST_DATABASE_URL === undefined)('The SQL repositories on a thro
       expect(await tableCounts()).toEqual(before)
     })
 
+    it('deletes her and her auth user when Supabase Auth deletes auth.users from its own connection', async () => {
+      await pool.query("insert into auth.users (id, email) values ($1, '9980000001@clients.calm.app')", [ANA_USER])
+      await pool.query('update clients set user_id = $1 where id = 1', [ANA_USER])
+      // As GoTrue does: another connection deletes the auth user, and clients.user_id is "on delete set null".
+      const auth = new Pool({ connectionString: TEST_DATABASE_URL, max: 1 })
+      try {
+        await clientRepository(pool).remove('1', async (userId) => {
+          const db = await auth.connect()
+          try {
+            await db.query("set lock_timeout = '3s'")
+            await db.query('delete from auth.users where id = $1', [userId])
+          } finally {
+            db.release()
+          }
+        })
+      } finally {
+        await auth.end()
+      }
+
+      expect(await clientRepository(pool).history('1')).toBe('notFound')
+      expect(await countOf(`auth.users where id = '${ANA_USER}'`)).toBe(0)
+    }, 10_000)
+
     it('deletes nothing when her auth user cannot be deleted', async () => {
       await pool.query("insert into auth.users (id, email) values ($1, '9980000001@clients.calm.app')", [ANA_USER])
       await pool.query('update clients set user_id = $1 where id = 1', [ANA_USER])

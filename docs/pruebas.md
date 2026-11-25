@@ -12,7 +12,7 @@ Resultado observado (sin `TEST_DATABASE_URL`, así que las pruebas de SQL se sal
 
 ```text
  Test Files  10 passed | 1 skipped (11)
-      Tests  305 passed | 49 skipped (354)
+      Tests  305 passed | 50 skipped (355)
 ```
 
 | Archivo | Pruebas | Qué cubre |
@@ -202,7 +202,7 @@ Resultado observado contra `postgres:17-alpine` en Docker:
 
 ```text
  Test Files  1 passed (1)
-      Tests  49 passed (49)
+      Tests  50 passed (50)
 ```
 
 | Repositorio | Caso | Esperado | Observado |

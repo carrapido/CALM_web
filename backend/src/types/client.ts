@@ -27,7 +27,7 @@ export type RemovedClient = {
   authUserId: string | null
 }
 
-// Runs inside the deletion, before it is committed: throwing undoes the whole deletion.
+// Runs before her rows are deleted: throwing stops the deletion with nothing deleted.
 export type DeleteAuthUser = (userId: string) => Promise<void>
 
 export interface ClientRepository {
@@ -37,7 +37,7 @@ export interface ClientRepository {
   grantAccess(access: AppAccess): Promise<GrantedAccess | 'notFound' | 'phoneTaken'>
   history(clientId: string): Promise<ClientHistory | 'notFound'>
   // Permanent: her orders, appointments and sign-in attempts go with her, all or nothing.
-  // Her auth user is deleted last, inside the same transaction, so a failure keeps everything.
+  // Her auth user is deleted first, then her rows in one transaction.
   remove(clientId: string, deleteAuthUser: DeleteAuthUser): Promise<RemovedClient | 'notFound'>
 }
 

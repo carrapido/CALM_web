@@ -1,6 +1,6 @@
 import { DatabaseError, type Pool, type PoolClient } from 'pg'
 import type {
-  AppAccess, Client, ClientHistory, ClientRepository, DeleteAuthUser, GrantedAccess, NewClient, RemovedClient,
+  AppAccess, Client, ClientHistory, ClientRepository, GrantedAccess, NewClient,
 } from '../types/client.js'
 import { inTransaction } from '../utils/in-transaction.js'
 
@@ -30,6 +30,7 @@ const UPDATE_ACCESS = `update clients
   returning ${COLUMNS}`
 
 const LOCK_ACCESS_BEFORE = 'select phone, user_id from clients where id = $1 for update'
+const ACCESS_OF = 'select phone, user_id from clients where id = $1'
 
 const HISTORY = `select
     (select count(*) from appointments where client_id = clients.id)::int as appointments,
@@ -70,8 +71,17 @@ export function clientRepository(pool: Pool): ClientRepository {
       return rows[0] ?? 'notFound'
     },
 
+    // Her auth user goes first, outside the transaction: Supabase Auth deletes it on its own
+    // connection and sets clients.user_id to null, which would wait forever on a row this
+    // transaction holds. If Auth fails, nothing is deleted; if the SQL then fails, she stays
+    // without app access and can be deleted again.
     async remove(clientId, deleteAuthUser) {
-      return inTransaction(pool, (db) => deleteClient(db, clientId, deleteAuthUser))
+      const { rows } = await pool.query<AccessBefore>(ACCESS_OF, [clientId])
+      const client = rows[0]
+      if (client === undefined) return 'notFound'
+      if (client.user_id !== null) await deleteAuthUser(client.user_id)
+      const removed = await inTransaction(pool, (db) => deleteClient(db, clientId))
+      return removed === 'notFound' ? 'notFound' : { authUserId: client.user_id }
     },
   }
 }
@@ -95,11 +105,7 @@ async function updateAccess(db: PoolClient, { clientId, phone, nipHash }: AppAcc
 
 // Orders first, since they point to her appointments; appointment_services goes with each
 // appointment (on delete cascade).
-async function deleteClient(
-  db: PoolClient,
-  clientId: string,
-  deleteAuthUser: DeleteAuthUser,
-): Promise<RemovedClient | 'notFound'> {
+async function deleteClient(db: PoolClient, clientId: string): Promise<'deleted' | 'notFound'> {
   const before = await db.query<AccessBefore>(LOCK_ACCESS_BEFORE, [clientId])
   const client = before.rows[0]
   if (client === undefined) return 'notFound'
@@ -108,8 +114,7 @@ async function deleteClient(
   await db.query('delete from appointments where client_id = $1', [clientId])
   await clearSignInAttempts(db, [client.phone])
   await db.query('delete from clients where id = $1', [clientId])
-  if (client.user_id !== null) await deleteAuthUser(client.user_id)
-  return { authUserId: client.user_id }
+  return 'deleted'
 }
 
 // A fresh NIP starts with a clean slate: a lockout earned by the forgotten one is lifted, on the

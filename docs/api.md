@@ -232,7 +232,7 @@ curl -X POST http://localhost:3000/api/clients \
 | Éxito | **204** sin cuerpo |
 | 400 `invalid_input` | `El identificador del cliente no es válido.` |
 | 404 `not_found` | `Ese cliente ya no existe.` (no borra nada) |
-| Regla | **Irreversible.** En una sola transacción borra sus pedidos, sus citas (con sus servicios, `on delete cascade`), los intentos de inicio de sesión de su celular y su fila; al final, todavía dentro de la transacción, si ya había entrado a la app (`clients.user_id`), borra su usuario de Supabase Auth. Si cualquier paso falla, incluido Supabase Auth, no se borra nada y la API responde 500; se puede volver a intentar. |
+| Regla | **Irreversible.** Si ya había entrado a la app (`clients.user_id`), primero borra su usuario de Supabase Auth; si eso falla, no se borra nada y la API responde 500 (se puede reintentar). Después, en una sola transacción, borra sus pedidos, sus citas (con sus servicios, `on delete cascade`), los intentos de inicio de sesión de su celular y su fila; si algo falla ahí, no se borra ninguno de esos datos y ella queda sin acceso a la app, lista para volver a borrarla. El usuario de Auth se borra antes porque Supabase lo borra desde su propia conexión y pone `clients.user_id` en nulo, lo que esperaría para siempre a una fila bloqueada por la transacción. |
 
 ```bash
 curl -i -X DELETE http://localhost:3000/api/clients/6 -H "Authorization: Bearer $TOKEN"
